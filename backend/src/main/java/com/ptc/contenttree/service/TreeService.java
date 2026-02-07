@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -50,8 +51,13 @@ public class TreeService {
         TreeNode node = repository.findById(id)
                 .orElseThrow(() -> new NodeNotFoundException("Node not found: " + id));
 
-        log.info("Deleting node {}", id);
-        repository.delete(id);
+        // dont allow deleting root if it has children
+        if (node.getParentId() == null && !repository.getChildren(id).isEmpty()) {
+            throw new IllegalStateException("Cannot delete root node with children");
+        }
+
+        log.info("Deleting node {} with all children", id);
+        repository.deleteWithChildren(id);
     }
 
     public TreeNodeResponse getById(Long id) {
@@ -91,7 +97,7 @@ public class TreeService {
         response.setContent(node.getContent());
         response.setParentId(node.getParentId());
 
-        java.util.List<TreeNodeResponse> childResponses = new ArrayList<>();
+        List<TreeNodeResponse> childResponses = new ArrayList<>();
         if (node.getChildren() != null) {
             for (TreeNode child : node.getChildren()) {
                 childResponses.add(toResponseWithChildren(child));
