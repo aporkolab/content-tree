@@ -100,7 +100,41 @@ public class TreeService {
         log.debug("Moved node {} to parent {}", nodeId, newParentId);
     }
 
+    public TreeNodeResponse search(String query) {
+        if (query == null || query.trim().isEmpty()) {
+            return getFullTree();
+        }
+
+        String lowerQuery = query.toLowerCase();
+        TreeNode root = repository.buildTree();
+        if (root == null) {
+            return null;
+        }
+
+        // Mark matching nodes in tree
+        markMatches(root, lowerQuery);
+        return toResponseWithChildren(root);
+    }
+
+    private boolean markMatches(TreeNode node, String query) {
+        boolean nameMatch = node.getName().toLowerCase().contains(query);
+        boolean contentMatch = node.getContent().toLowerCase().contains(query);
+        boolean selfMatch = nameMatch || contentMatch;
+
+        boolean childMatch = false;
+        for (TreeNode child : node.getChildren()) {
+            if (markMatches(child, query)) {
+                childMatch = true;
+            }
+        }
+
+        // a node is a "match" if it or any descendant matches
+        node.setIsMatch(selfMatch);
+        return selfMatch || childMatch;
+    }
+
     private boolean isDescendant(Long ancestorId, Long nodeId) {
+        // Walk up from nodeId checking if we hit ancestorId
         Long currentId = nodeId;
         while (currentId != null) {
             if (currentId.equals(ancestorId)) {

@@ -51,4 +51,9 @@ public class TreeController {
         service.moveNode(request.getNodeId(), request.getNewParentId());
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping("/search")
+    public ResponseEntity<TreeNodeResponse> search(@RequestParam String query) {
+        return ResponseEntity.ok(service.search(query));
+    }
 }
