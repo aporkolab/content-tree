@@ -1,5 +1,6 @@
 package com.ptc.contenttree.controller;
 
+import com.ptc.contenttree.dto.MoveNodeRequest;
 import com.ptc.contenttree.dto.TreeNodeRequest;
 import com.ptc.contenttree.dto.TreeNodeResponse;
 import com.ptc.contenttree.service.TreeService;
@@ -43,5 +44,11 @@ public class TreeController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         service.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/move")
+    public ResponseEntity<Void> moveNode(@Valid @RequestBody MoveNodeRequest request) {
+        service.moveNode(request.getNodeId(), request.getNewParentId());
+        return ResponseEntity.ok().build();
     }
 }

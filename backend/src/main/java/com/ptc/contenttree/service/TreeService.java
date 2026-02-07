@@ -39,8 +39,13 @@ public class TreeService {
         TreeNode node = repository.findById(id)
                 .orElseThrow(() -> new NodeNotFoundException("Node not found: " + id));
 
+        if (request.getParentId() != null && !request.getParentId().equals(node.getParentId())) {
+            validateParent(request.getParentId());
+        }
+
         node.setName(request.getName());
         node.setContent(request.getContent());
+        node.setParentId(request.getParentId());
 
         TreeNode saved = repository.save(node);
         log.info("Updated node: {}", saved.getId());
@@ -74,6 +79,40 @@ public class TreeService {
         return toResponseWithChildren(root);
     }
 
+    public void moveNode(Long nodeId, Long newParentId) {
+        // using findById directly here, slightly different pattern than delete()
+        TreeNode node = repository.findById(nodeId).orElse(null);
+        if (node == null) {
+            throw new RuntimeException("Source node does not exist: " + nodeId);
+        }
+
+        if (newParentId != null) {
+            if (!repository.existsById(newParentId)) {
+                throw new IllegalArgumentException("Target parent does not exist: " + newParentId);
+            }
+            if (isDescendant(nodeId, newParentId)) {
+                throw new IllegalArgumentException("Cannot move node to its own descendant");
+            }
+        }
+
+        node.setParentId(newParentId);
+        repository.save(node);
+        log.debug("Moved node {} to parent {}", nodeId, newParentId);
+    }
+
+    private boolean isDescendant(Long ancestorId, Long nodeId) {
+        Long currentId = nodeId;
+        while (currentId != null) {
+            if (currentId.equals(ancestorId)) {
+                return true;
+            }
+            TreeNode current = repository.findById(currentId).orElse(null);
+            if (current == null) break;
+            currentId = current.getParentId();
+        }
+        return false;
+    }
+
     private void validateParent(Long parentId) {
         if (!repository.existsById(parentId)) {
             throw new IllegalArgumentException("Parent node does not exist: " + parentId);
@@ -87,6 +126,7 @@ public class TreeService {
         response.setContent(node.getContent());
         response.setParentId(node.getParentId());
         response.setChildren(new ArrayList<>());
+        response.setIsMatch(node.getIsMatch());
         return response;
     }
 
@@ -96,6 +136,7 @@ public class TreeService {
         response.setName(node.getName());
         response.setContent(node.getContent());
         response.setParentId(node.getParentId());
+        response.setIsMatch(node.getIsMatch());
 
         List<TreeNodeResponse> childResponses = new ArrayList<>();
         if (node.getChildren() != null) {
