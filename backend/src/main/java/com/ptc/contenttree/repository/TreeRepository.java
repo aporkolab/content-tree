@@ -97,6 +97,7 @@ public class TreeRepository {
         }
     }
 
+    // FIXME: data directory not being created, nodes lost on restart
     private void saveToFile() {
         try {
             List<TreeNode> allNodes = new ArrayList<>(nodes.values());
