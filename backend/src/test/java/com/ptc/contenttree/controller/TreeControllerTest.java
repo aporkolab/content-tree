@@ -124,6 +124,57 @@ class TreeControllerTest {
                 .andExpect(status().isNoContent());
     }
 
+    @Test
+    void shouldMoveNode() throws Exception {
+        MoveNodeRequest request = new MoveNodeRequest(2L, 3L);
+        doNothing().when(service).moveNode(2L, 3L);
+
+        mockMvc.perform(post("/api/tree/move")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        verify(service).moveNode(2L, 3L);
+    }
+
+    @Test
+    void shouldSearchNodes() throws Exception {
+        TreeNodeResponse root = createResponse(1L, "Root", "Root content", null);
+        root.setIsMatch(false);
+        TreeNodeResponse child = createResponse(2L, "Documents", "Important docs", 1L);
+        child.setIsMatch(true);
+        root.setChildren(List.of(child));
+
+        when(service.search("doc")).thenReturn(root);
+
+        mockMvc.perform(get("/api/tree/search").param("query", "doc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isMatch").value(false))
+                .andExpect(jsonPath("$.children[0].isMatch").value(true));
+    }
+
+    @Test
+    void shouldReturn404ForGetNonexistentNode() throws Exception {
+        when(service.getById(999L)).thenThrow(new NodeNotFoundException("Node not found: 999"));
+
+        mockMvc.perform(get("/api/tree/999"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void shouldReturnBadRequestForInvalidMove() throws Exception {
+        MoveNodeRequest request = new MoveNodeRequest(1L, 2L);
+        doThrow(new IllegalArgumentException("Cannot move node to its own descendant"))
+                .when(service).moveNode(1L, 2L);
+
+        mockMvc.perform(post("/api/tree/move")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    // TODO: add tests for validation errors (missing name/content)
+
     private TreeNodeResponse createResponse(Long id, String name, String content, Long parentId) {
         TreeNodeResponse response = new TreeNodeResponse();
         response.setId(id);
