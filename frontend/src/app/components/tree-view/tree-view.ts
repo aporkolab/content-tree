@@ -4,11 +4,12 @@ import { BehaviorSubject } from 'rxjs';
 import { TreeNode } from '../../models/tree.model';
 import { TreeService } from '../../services/tree.service';
 import { TreeNodeComponent } from '../tree-node/tree-node';
+import { ContentPanel } from '../content-panel/content-panel';
 
 @Component({
   selector: 'app-tree-view',
   standalone: true,
-  imports: [CommonModule, TreeNodeComponent],
+  imports: [CommonModule, TreeNodeComponent, ContentPanel],
   templateUrl: './tree-view.html',
   styleUrl: './tree-view.scss',
 })

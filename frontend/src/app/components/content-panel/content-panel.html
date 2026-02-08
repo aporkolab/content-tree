@@ -1,0 +1,26 @@
+<div class="content-header">
+  <h2>{{ node.name }}</h2>
+  <div class="meta">
+    <span class="badge">ID: {{ node.id }}</span>
+    @if (node.parentId) {
+      <span class="badge">Parent: {{ node.parentId }}</span>
+    } @else {
+      <span class="badge root">Root Node</span>
+    }
+  </div>
+</div>
+
+<div class="content-body">
+  <p>{{ node.content }}</p>
+</div>
+
+@if (node.children && node.children.length > 0) {
+  <div class="children-info">
+    <h3>Children ({{ node.children.length }})</h3>
+    <ul>
+      @for (child of node.children; track child.id) {
+        <li>{{ child.name }}</li>
+      }
+    </ul>
+  </div>
+}

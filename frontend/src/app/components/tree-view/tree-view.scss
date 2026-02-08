@@ -63,3 +63,22 @@ $border: #ddd;
   padding: 40px;
   color: #999;
 }
+
+.no-selection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #999;
+
+  .no-selection-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+  }
+
+  p {
+    font-size: 15px;
+  }
+}

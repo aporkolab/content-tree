@@ -23,12 +23,10 @@
 
   <div class="content-area">
     @if (selectedNode) {
-      <div class="content-panel">
-        <h2>{{ selectedNode.name }}</h2>
-        <p>{{ selectedNode.content }}</p>
-      </div>
+      <app-content-panel [node]="selectedNode" />
     } @else {
       <div class="no-selection">
+        <div class="no-selection-icon">&#128196;</div>
         <p>Select a node to view its content</p>
       </div>
     }
