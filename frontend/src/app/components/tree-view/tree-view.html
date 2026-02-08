@@ -1,6 +1,13 @@
 <div class="layout">
   <div class="tree-container">
     <div class="tree-header">
+      <input
+        type="text"
+        [(ngModel)]="searchQuery"
+        (ngModelChange)="onSearch($event)"
+        placeholder="Search in tree..."
+        class="search-input"
+      />
       <div class="actions">
         <button (click)="openCreateDialog(null)" class="btn btn-primary">
           + New Root Node
