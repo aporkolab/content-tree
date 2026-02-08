@@ -50,3 +50,8 @@ $primary: #4a90d9;
 :host {
   display: block;
 }
+
+// expand/collapse transition
+.node-toggle {
+  transition: transform 0.15s ease;
+}
