@@ -1,0 +1,32 @@
+<div class="dialog-overlay" (click)="onOverlayClick($event)">
+  <div class="dialog">
+    <div class="dialog-header">
+      <h3>Delete Node</h3>
+    </div>
+
+    <div class="dialog-body">
+      <p class="warning">
+        Are you sure you want to delete <strong>"{{ node.name }}"</strong>?
+      </p>
+
+      @if (childCount > 0) {
+        <div class="affected-warning">
+          <strong>Warning:</strong> This will also delete {{ childCount }} child node{{ childCount > 1 ? 's' : '' }}.
+        </div>
+        <div class="affected-list">
+          <p>The following nodes will be deleted:</p>
+          <ul>
+            @for (name of affectedNodes; track name) {
+              <li>{{ name }}</li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+
+    <div class="dialog-actions">
+      <button class="btn btn-secondary" (click)="cancel.emit()">Cancel</button>
+      <button class="btn btn-danger" (click)="confirm.emit()">Delete</button>
+    </div>
+  </div>
+</div>

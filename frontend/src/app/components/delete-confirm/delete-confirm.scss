@@ -1,0 +1,47 @@
+.dialog-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4);
+  display: flex; align-items: center; justify-content: center; z-index: 1000;
+}
+
+.dialog {
+  background: white; border-radius: 8px; width: 420px;
+  max-width: 90vw; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.dialog-header {
+  padding: 16px 20px; border-bottom: 1px solid #eee;
+  h3 { margin: 0; font-size: 17px; font-weight: 600; color: #e74c3c; }
+}
+
+.dialog-body {
+  padding: 20px;
+  .warning { margin: 0 0 12px; font-size: 14px; color: #333; }
+
+  .affected-warning {
+    padding: 10px 14px; background: #fff3cd; border: 1px solid #ffc107;
+    border-radius: 4px; font-size: 13px; color: #856404; margin-bottom: 12px;
+  }
+
+  .affected-list {
+    p { margin: 0 0 6px; font-size: 13px; color: #666; }
+    ul {
+      list-style: none; padding: 0; margin: 0; max-height: 150px; overflow-y: auto;
+      li {
+        padding: 4px 10px; font-size: 13px; color: #e74c3c;
+        border-left: 2px solid #e74c3c; margin-bottom: 3px;
+      }
+    }
+  }
+}
+
+.dialog-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 12px 20px; border-top: 1px solid #eee;
+}
+
+.btn {
+  padding: 8px 18px; border: none; border-radius: 4px;
+  cursor: pointer; font-size: 14px; font-weight: 500;
+  &.btn-secondary { background: #f0f0f0; color: #555; &:hover { background: #e0e0e0; } }
+  &.btn-danger { background: #e74c3c; color: white; &:hover { background: darken(#e74c3c, 8%); } }
+}
