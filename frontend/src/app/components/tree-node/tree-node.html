@@ -1,0 +1,30 @@
+<div
+  class="tree-node"
+  [class.selected]="isSelected"
+  [style.padding-left.px]="level * 20 + 8"
+>
+  @if (hasChildren) {
+    <span class="expand-toggle" (click)="toggleExpand($event)">
+      {{ expanded ? '\u25BC' : '\u25B6' }}
+    </span>
+  } @else {
+    <span class="expand-toggle leaf">&bull;</span>
+  }
+
+  <span class="node-name" (click)="nodeSelect.emit(node)">
+    {{ node.name }}
+  </span>
+</div>
+
+@if (expanded && hasChildren) {
+  <div class="children">
+    @for (child of node.children; track child.id) {
+      <app-tree-node
+        [node]="child"
+        [selectedId]="selectedId"
+        [level]="level + 1"
+        (nodeSelect)="nodeSelect.emit($event)"
+      />
+    }
+  </div>
+}

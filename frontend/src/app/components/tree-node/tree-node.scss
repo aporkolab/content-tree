@@ -1,0 +1,52 @@
+$primary: #4a90d9;
+
+.tree-node {
+  display: flex;
+  align-items: center;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  user-select: none;
+
+  &:hover {
+    background: rgba($primary, 0.05);
+  }
+
+  &.selected {
+    background: rgba($primary, 0.1);
+    border-left: 3px solid $primary;
+  }
+
+  .expand-toggle {
+    width: 20px;
+    font-size: 10px;
+    color: #666;
+    text-align: center;
+    flex-shrink: 0;
+
+    &.leaf {
+      font-size: 14px;
+    }
+  }
+
+  .node-name {
+    flex: 1;
+    font-weight: 500;
+    font-size: 14px;
+    padding: 2px 4px;
+    border-radius: 3px;
+
+    &:hover {
+      background: rgba($primary, 0.08);
+    }
+  }
+}
+
+.children {
+  border-left: 1px solid #e8e8e8;
+  margin-left: 18px;
+}
+
+:host {
+  display: block;
+}
