@@ -17,6 +17,14 @@ $primary: #4a90d9;
     border-left: 3px solid $primary;
   }
 
+  &.non-match {
+    color: #999;
+
+    .node-name {
+      font-style: italic;
+    }
+  }
+
   .expand-toggle {
     width: 20px;
     font-size: 10px;
@@ -40,6 +48,37 @@ $primary: #4a90d9;
       background: rgba($primary, 0.08);
     }
   }
+
+  .node-actions {
+    opacity: 0;
+    transition: opacity 0.15s;
+    display: flex;
+    gap: 2px;
+
+    button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 6px;
+      font-size: 15px;
+      border-radius: 3px;
+      color: #666;
+
+      &:hover {
+        color: $primary;
+        background: rgba($primary, 0.08);
+      }
+
+      &.delete-btn:hover {
+        color: #e74c3c;
+        background: rgba(#e74c3c, 0.08);
+      }
+    }
+  }
+
+  &:hover .node-actions {
+    opacity: 1;
+  }
 }
 
 .children {
@@ -47,11 +86,23 @@ $primary: #4a90d9;
   margin-left: 18px;
 }
 
+// drag drop styles
 :host {
   display: block;
 }
 
-// expand/collapse transition
-.node-toggle {
-  transition: transform 0.15s ease;
+.cdk-drag-preview {
+  background: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  padding: 7px 12px;
+  font-size: 14px;
+}
+
+.cdk-drag-placeholder {
+  opacity: 0.3;
+}
+
+.cdk-drop-list-dragging .tree-node:not(.cdk-drag-placeholder) {
+  transition: transform 250ms;
 }

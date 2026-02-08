@@ -1,7 +1,10 @@
 <div
   class="tree-node"
   [class.selected]="isSelected"
+  [class.non-match]="node.isMatch === false"
   [style.padding-left.px]="level * 20 + 8"
+  cdkDrag
+  [cdkDragData]="node"
 >
   @if (hasChildren) {
     <span class="expand-toggle" (click)="toggleExpand($event)">
@@ -14,16 +17,31 @@
   <span class="node-name" (click)="nodeSelect.emit(node)">
     {{ node.name }}
   </span>
+
+  <div class="node-actions">
+    <button (click)="nodeCreate.emit(node.id)" title="Add child">+</button>
+    <button (click)="nodeEdit.emit(node)" title="Edit">&#9998;</button>
+    <button (click)="nodeDelete.emit(node)" title="Delete" class="delete-btn">&times;</button>
+  </div>
 </div>
 
 @if (expanded && hasChildren) {
-  <div class="children">
+  <div
+    class="children"
+    cdkDropList
+    [cdkDropListData]="node"
+    (cdkDropListDropped)="nodeDrop.emit($event)"
+  >
     @for (child of node.children; track child.id) {
       <app-tree-node
         [node]="child"
         [selectedId]="selectedId"
         [level]="level + 1"
         (nodeSelect)="nodeSelect.emit($event)"
+        (nodeCreate)="nodeCreate.emit($event)"
+        (nodeEdit)="nodeEdit.emit($event)"
+        (nodeDelete)="nodeDelete.emit($event)"
+        (nodeDrop)="nodeDrop.emit($event)"
       />
     }
   </div>
