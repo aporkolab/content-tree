@@ -1,0 +1,47 @@
+<div class="dialog-overlay" (click)="onOverlayClick($event)">
+  <div class="dialog">
+    <div class="dialog-header">
+      <h3>{{ title }}</h3>
+      <button class="close-btn" (click)="onCancel()">&times;</button>
+    </div>
+
+    <form (ngSubmit)="onSubmit()">
+      <div class="form-group">
+        <label for="name">Name</label>
+        <input
+          id="name"
+          type="text"
+          [(ngModel)]="name"
+          name="name"
+          placeholder="Enter node name"
+          [class.invalid]="submitted && !name.trim()"
+        />
+        @if (submitted && !name.trim()) {
+          <span class="error">Name is required</span>
+        }
+      </div>
+
+      <div class="form-group">
+        <label for="content">Content</label>
+        <textarea
+          id="content"
+          [(ngModel)]="content"
+          name="content"
+          rows="4"
+          placeholder="Enter node content"
+          [class.invalid]="submitted && !content.trim()"
+        ></textarea>
+        @if (submitted && !content.trim()) {
+          <span class="error">Content is required</span>
+        }
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-secondary" (click)="onCancel()">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+          {{ mode === 'create' ? 'Create' : 'Save' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
