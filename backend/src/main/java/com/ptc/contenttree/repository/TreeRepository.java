@@ -138,6 +138,10 @@ public class TreeRepository {
         return nodes.containsKey(id);
     }
 
+    public boolean hasRoot() {
+        return nodes.values().stream().anyMatch(n -> n.getParentId() == null);
+    }
+
     public long count() {
         return nodes.size();
     }

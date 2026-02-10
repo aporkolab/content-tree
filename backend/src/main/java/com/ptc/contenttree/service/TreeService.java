@@ -23,6 +23,8 @@ public class TreeService {
     public TreeNodeResponse create(TreeNodeRequest request) {
         if (request.getParentId() != null) {
             validateParent(request.getParentId());
+        } else if (repository.hasRoot()) {
+            throw new IllegalArgumentException("Root node already exists, new nodes must have a parent");
         }
 
         TreeNode node = new TreeNode();
