@@ -1,0 +1,8 @@
+[
+  { "id": 1, "name": "Root", "content": "This is the root node of the content tree", "parentId": null },
+  { "id": 2, "name": "Documents", "content": "Collection of important documents", "parentId": 1 },
+  { "id": 3, "name": "Images", "content": "Image gallery and media files", "parentId": 1 },
+  { "id": 4, "name": "Annual Report", "content": "The annual report for 2025 fiscal year with financial details", "parentId": 2 },
+  { "id": 5, "name": "Meeting Notes", "content": "Notes from the weekly team standup meetings", "parentId": 2 },
+  { "id": 6, "name": "Company Logo", "content": "Official company logo in various formats and sizes", "parentId": 3 }
+]

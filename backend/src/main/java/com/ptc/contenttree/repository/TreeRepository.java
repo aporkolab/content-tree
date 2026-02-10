@@ -52,51 +52,11 @@ public class TreeRepository {
                 }
                 log.info("Loaded {} nodes from {}", nodes.size(), DATA_FILE);
             } else {
-                initSampleData();
+                log.info("No existing data found, starting with empty tree");
             }
         } catch (Exception e) {
             log.error("Failed to load tree data: {}", e.getMessage());
-            initSampleData();
         }
-    }
-
-    private void initSampleData() {
-        log.info("Initializing sample tree data");
-
-        TreeNode root = new TreeNode();
-        root.setName("Root");
-        root.setContent("This is the root node of the content tree");
-        save(root);
-
-        TreeNode docs = new TreeNode();
-        docs.setName("Documents");
-        docs.setContent("Collection of important documents");
-        docs.setParentId(root.getId());
-        save(docs);
-
-        TreeNode images = new TreeNode();
-        images.setName("Images");
-        images.setContent("Image gallery and media files");
-        images.setParentId(root.getId());
-        save(images);
-
-        TreeNode report = new TreeNode();
-        report.setName("Annual Report");
-        report.setContent("The annual report for 2025 fiscal year with financial details");
-        report.setParentId(docs.getId());
-        save(report);
-
-        TreeNode meeting = new TreeNode();
-        meeting.setName("Meeting Notes");
-        meeting.setContent("Notes from the weekly team standup meetings");
-        meeting.setParentId(docs.getId());
-        save(meeting);
-
-        TreeNode logo = new TreeNode();
-        logo.setName("Company Logo");
-        logo.setContent("Official company logo in various formats and sizes");
-        logo.setParentId(images.getId());
-        save(logo);
     }
 
     public TreeNode save(TreeNode node) {

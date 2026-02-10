@@ -55,8 +55,8 @@ com.ptc.contenttree/
 
 The tree data is persisted into JSON file for sake of simplicity during
 development. The `TreeRepository` uses a `ConcurrentHashMap` for in-memory
-storage and writes to `data/tree.json` on every change. On startup, if no
-data file exists, sample data is initialized automatically.
+storage and writes to `data/tree.json` on every change. The application
+starts with an empty tree as specified in the requirements.
 
 ### Key Design Decisions
 
@@ -65,6 +65,9 @@ data file exists, sample data is initialized automatically.
   proper database with recursive CTEs.
 - **Recursive delete** - when deleting a non-leaf node, all children are
   deleted recursively. This is handled in the repository layer.
+- **Sample data available** - the app starts with empty tree per spec. If you
+  want to quickly test with some data, copy the included seed file:
+  `cp backend/src/main/resources/sample-tree.json data/tree.json` and restart.
 - **Search with match flags** - the search endpoint returns the full tree
   structure with `isMatch` boolean on each node. The frontend uses this to
   show non-matching nodes in gray while keeping them visible for context.
