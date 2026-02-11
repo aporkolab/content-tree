@@ -58,9 +58,8 @@ public class TreeService {
         TreeNode node = repository.findById(id)
                 .orElseThrow(() -> new NodeNotFoundException("Node not found: " + id));
 
-        // dont allow deleting root if it has children
-        if (node.getParentId() == null && !repository.getChildren(id).isEmpty()) {
-            throw new IllegalStateException("Cannot delete root node with children");
+        if (node.getParentId() == null) {
+            throw new IllegalStateException("Cannot delete root node");
         }
 
         log.info("Deleting node {} with all children", id);
@@ -78,7 +77,17 @@ public class TreeService {
         if (root == null) {
             return null;
         }
+        clearMatchFlags(root);
         return toResponseWithChildren(root);
+    }
+
+    private void clearMatchFlags(TreeNode node) {
+        node.setIsMatch(null);
+        if (node.getChildren() != null) {
+            for (TreeNode child : node.getChildren()) {
+                clearMatchFlags(child);
+            }
+        }
     }
 
     public void moveNode(Long nodeId, Long newParentId) {

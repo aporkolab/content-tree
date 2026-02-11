@@ -1,5 +1,14 @@
 <div class="content-header">
-  <h2>{{ node.name }}</h2>
+  <div class="header-row">
+    <h2>{{ node.name }}</h2>
+    <div class="action-buttons">
+      <button class="btn btn-new" (click)="addChild.emit(node.id)" title="Add child node">+ New</button>
+      <button class="btn btn-edit" (click)="edit.emit(node)" title="Edit this node">Edit</button>
+      @if (!isRoot) {
+        <button class="btn btn-delete" (click)="delete.emit(node)" title="Delete this node">Delete</button>
+      }
+    </div>
+  </div>
   <div class="meta">
     <span class="badge">ID: {{ node.id }}</span>
     @if (node.parentId) {

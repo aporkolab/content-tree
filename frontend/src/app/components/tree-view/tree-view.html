@@ -43,7 +43,12 @@
 
   <div class="content-area">
     @if (selectedNode) {
-      <app-content-panel [node]="selectedNode" />
+      <app-content-panel
+        [node]="selectedNode"
+        (addChild)="openCreateDialog($event)"
+        (edit)="openEditDialog($event)"
+        (delete)="openDeleteConfirm($event)"
+      />
     } @else {
       <div class="no-selection">
         <div class="no-selection-icon">&#128196;</div>

@@ -21,7 +21,9 @@
   <div class="node-actions">
     <button (click)="nodeCreate.emit(node.id)" title="Add child">+</button>
     <button (click)="nodeEdit.emit(node)" title="Edit">&#9998;</button>
-    <button (click)="nodeDelete.emit(node)" title="Delete" class="delete-btn">&times;</button>
+    @if (node.parentId !== null) {
+      <button (click)="nodeDelete.emit(node)" title="Delete" class="delete-btn">&times;</button>
+    }
   </div>
 </div>
 
