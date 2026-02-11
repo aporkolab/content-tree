@@ -4,7 +4,6 @@ import { TreeNode } from '../../models/tree.model';
 
 @Component({
   selector: 'app-delete-confirm',
-  standalone: true,
   imports: [CommonModule],
   templateUrl: './delete-confirm.html',
   styleUrl: './delete-confirm.scss',

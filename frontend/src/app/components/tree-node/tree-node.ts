@@ -17,7 +17,6 @@ import { TreeDropService } from '../../services/tree-drop.service';
 
 @Component({
   selector: 'app-tree-node',
-  standalone: true,
   imports: [CommonModule, DragDropModule],
   templateUrl: './tree-node.html',
   styleUrl: './tree-node.scss',

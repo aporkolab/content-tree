@@ -4,7 +4,6 @@ import { TreeNode } from '../../models/tree.model';
 
 @Component({
   selector: 'app-content-panel',
-  standalone: true,
   imports: [CommonModule],
   templateUrl: './content-panel.html',
   styleUrl: './content-panel.scss',

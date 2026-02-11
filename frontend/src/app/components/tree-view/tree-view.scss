@@ -1,5 +1,4 @@
-$primary: #4a90d9;
-$border: #ddd;
+@use 'variables' as *;
 
 .layout {
   display: flex;
@@ -128,6 +127,20 @@ $border: #ddd;
   }
 }
 
+.error-toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #e74c3c;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 2000;
+}
+
 // responsive
 @media (max-width: 768px) {
   .layout {
@@ -141,4 +154,3 @@ $border: #ddd;
     border-bottom: 1px solid $border;
   }
 }
-/* final cleanup */

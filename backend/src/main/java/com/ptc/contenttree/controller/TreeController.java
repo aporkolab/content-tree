@@ -19,7 +19,11 @@ public class TreeController {
 
     @GetMapping
     public ResponseEntity<TreeNodeResponse> getTree() {
-        return ResponseEntity.ok(service.getFullTree());
+        TreeNodeResponse tree = service.getFullTree();
+        if (tree == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(tree);
     }
 
     @GetMapping("/{id}")
@@ -54,6 +58,10 @@ public class TreeController {
 
     @GetMapping("/search")
     public ResponseEntity<TreeNodeResponse> search(@RequestParam String query) {
-        return ResponseEntity.ok(service.search(query));
+        TreeNodeResponse result = service.search(query);
+        if (result == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(result);
     }
 }

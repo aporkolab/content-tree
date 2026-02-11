@@ -1,6 +1,7 @@
 package com.ptc.contenttree.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -12,6 +13,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class TreeNode {
 
     private Long id;
@@ -27,5 +29,6 @@ public class TreeNode {
     @JsonIgnore
     private List<TreeNode> children = new ArrayList<>();
 
+    @JsonIgnore
     private Boolean isMatch;
 }

@@ -173,8 +173,6 @@ class TreeControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
-    // TODO: add tests for validation errors (missing name/content)
-
     private TreeNodeResponse createResponse(Long id, String name, String content, Long parentId) {
         TreeNodeResponse response = new TreeNodeResponse();
         response.setId(id);

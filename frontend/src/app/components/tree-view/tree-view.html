@@ -58,6 +58,10 @@
   </div>
 </div>
 
+@if (errorMessage) {
+  <div class="error-toast">{{ errorMessage }}</div>
+}
+
 @if (showNodeDialog) {
   <app-node-dialog
     [mode]="dialogMode"

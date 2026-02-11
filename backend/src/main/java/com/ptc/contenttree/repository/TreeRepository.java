@@ -85,11 +85,16 @@ public class TreeRepository {
     public void deleteWithChildren(Long id) {
         TreeNode node = nodes.get(id);
         if (node != null) {
-            // recursively delete children first
-            getChildren(id).forEach(child -> deleteWithChildren(child.getId()));
-            nodes.remove(id);
+            collectSubtreeIds(id).forEach(nodes::remove);
             saveToFile();
         }
+    }
+
+    private List<Long> collectSubtreeIds(Long id) {
+        List<Long> ids = new ArrayList<>();
+        ids.add(id);
+        getChildren(id).forEach(child -> ids.addAll(collectSubtreeIds(child.getId())));
+        return ids;
     }
 
     public void delete(Long id) {
@@ -122,13 +127,17 @@ public class TreeRepository {
 
     private void saveToFile() {
         try {
-            List<TreeNode> allNodes = new ArrayList<>(nodes.values());
-            // clear children references before saving to avoid duplication
-            for (TreeNode node : allNodes) {
-                node.setChildren(new ArrayList<>());
-                node.setIsMatch(null);
-            }
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(DATA_FILE), allNodes);
+            List<TreeNode> snapshot = nodes.values().stream()
+                    .map(n -> {
+                        TreeNode copy = new TreeNode();
+                        copy.setId(n.getId());
+                        copy.setName(n.getName());
+                        copy.setContent(n.getContent());
+                        copy.setParentId(n.getParentId());
+                        return copy;
+                    })
+                    .toList();
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(DATA_FILE), snapshot);
         } catch (Exception e) {
             log.error("Failed to save tree data: {}", e.getMessage());
         }

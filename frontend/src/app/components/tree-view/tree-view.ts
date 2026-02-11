@@ -2,8 +2,8 @@ import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CdkDragDrop } from '@angular/cdk/drag-drop';
-import { BehaviorSubject, Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+import { BehaviorSubject, of, Subject } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { TreeNode, TreeNodeRequest } from '../../models/tree.model';
 import { TreeService } from '../../services/tree.service';
 import { TreeNodeComponent } from '../tree-node/tree-node';
@@ -13,7 +13,6 @@ import { DeleteConfirm } from '../delete-confirm/delete-confirm';
 
 @Component({
   selector: 'app-tree-view',
-  standalone: true,
   imports: [
     CommonModule,
     FormsModule,
@@ -33,6 +32,7 @@ export class TreeView implements OnInit {
   selectedNode: TreeNode | null = null;
   searchQuery = '';
   loading = false;
+  errorMessage = '';
 
   // dialog state
   showNodeDialog = false;
@@ -53,7 +53,9 @@ export class TreeView implements OnInit {
         debounceTime(300),
         distinctUntilChanged(),
         switchMap((query) =>
-          query ? this.treeService.searchTree(query) : this.treeService.getTree()
+          (query ? this.treeService.searchTree(query) : this.treeService.getTree()).pipe(
+            catchError(() => of(null))
+          )
         )
       )
       .subscribe((tree) => {
@@ -68,12 +70,27 @@ export class TreeView implements OnInit {
       next: (tree) => {
         this.tree$.next(tree);
         this.loading = false;
-        // console.log('loaded tree:', tree);
+        this.refreshSelectedNode(tree);
       },
       error: () => {
         this.loading = false;
       },
     });
+  }
+
+  private refreshSelectedNode(tree: TreeNode | null): void {
+    if (!this.selectedNode || !tree) return;
+    const found = this.findNodeById(tree, this.selectedNode.id);
+    this.selectedNode = found ?? null;
+  }
+
+  private findNodeById(node: TreeNode, id: number): TreeNode | null {
+    if (node.id === id) return node;
+    for (const child of node.children ?? []) {
+      const found = this.findNodeById(child, id);
+      if (found) return found;
+    }
+    return null;
   }
 
   onSearch(query: string): void {
@@ -128,20 +145,19 @@ export class TreeView implements OnInit {
         error: (err) => {
           console.error('Failed to create node:', err);
           this.showNodeDialog = false;
-          alert(err.error || 'Failed to create node');
+          this.showError(err.error || 'Failed to create node');
         },
       });
     } else if (this.editingNode) {
       this.treeService.updateNode(this.editingNode.id, request).subscribe({
         next: () => {
           this.showNodeDialog = false;
-          this.selectedNode = null;
           this.loadTree();
         },
         error: (err) => {
           console.error('Failed to update node:', err);
           this.showNodeDialog = false;
-          alert(err.error || 'Failed to update node');
+          this.showError(err.error || 'Failed to update node');
         },
       });
     }
@@ -164,7 +180,7 @@ export class TreeView implements OnInit {
         },
         error: (err) => {
           console.error('Failed to delete node:', err);
-          alert('Failed to delete node. It may be the root node with children.');
+          this.showError(err.error || 'Failed to delete node');
           this.showDeleteDialog = false;
         },
       });
@@ -174,5 +190,10 @@ export class TreeView implements OnInit {
   onDeleteCancel(): void {
     this.showDeleteDialog = false;
     this.deletingNode = null;
+  }
+
+  private showError(message: string): void {
+    this.errorMessage = message;
+    setTimeout(() => this.errorMessage = '', 5000);
   }
 }

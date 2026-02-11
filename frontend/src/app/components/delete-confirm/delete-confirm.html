@@ -16,7 +16,7 @@
         <div class="affected-list">
           <p>The following nodes will be deleted:</p>
           <ul>
-            @for (name of affectedNodes; track name) {
+            @for (name of affectedNodes; track $index) {
               <li>{{ name }}</li>
             }
           </ul>

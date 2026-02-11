@@ -45,6 +45,10 @@ public class TreeService {
             validateParent(request.getParentId());
         }
 
+        if (request.getParentId() == null && node.getParentId() != null && repository.hasRoot()) {
+            throw new IllegalArgumentException("Cannot set parent to null, root node already exists");
+        }
+
         node.setName(request.getName());
         node.setContent(request.getContent());
         node.setParentId(request.getParentId());
@@ -128,9 +132,9 @@ public class TreeService {
     }
 
     private boolean markMatches(TreeNode node, String query) {
-        boolean nameMatch = node.getName().toLowerCase().contains(query);
-        boolean contentMatch = node.getContent().toLowerCase().contains(query);
-        boolean selfMatch = nameMatch || contentMatch;
+        String name = node.getName() != null ? node.getName().toLowerCase() : "";
+        String content = node.getContent() != null ? node.getContent().toLowerCase() : "";
+        boolean selfMatch = name.contains(query) || content.contains(query);
 
         boolean childMatch = false;
         for (TreeNode child : node.getChildren()) {

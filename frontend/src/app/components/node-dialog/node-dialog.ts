@@ -5,7 +5,6 @@ import { TreeNode, TreeNodeRequest } from '../../models/tree.model';
 
 @Component({
   selector: 'app-node-dialog',
-  standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './node-dialog.html',
   styleUrl: './node-dialog.scss',
@@ -58,4 +57,3 @@ export class NodeDialog implements OnInit {
     }
   }
 }
-// validation fix
