@@ -9,9 +9,11 @@
         class="search-input"
       />
       <div class="actions">
-        <button (click)="openCreateDialog(null)" class="btn btn-primary">
-          + New Root Node
-        </button>
+        @if (!(tree$ | async)) {
+          <button (click)="openCreateDialog(null)" class="btn btn-primary">
+            + New Root Node
+          </button>
+        }
       </div>
     </div>
 

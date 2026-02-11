@@ -82,11 +82,8 @@ public class TreeService {
     }
 
     public void moveNode(Long nodeId, Long newParentId) {
-        // using findById directly here, slightly different pattern than delete()
-        TreeNode node = repository.findById(nodeId).orElse(null);
-        if (node == null) {
-            throw new RuntimeException("Source node does not exist: " + nodeId);
-        }
+        TreeNode node = repository.findById(nodeId)
+                .orElseThrow(() -> new NodeNotFoundException("Source node does not exist: " + nodeId));
 
         if (newParentId != null) {
             if (!repository.existsById(newParentId)) {
@@ -95,6 +92,9 @@ public class TreeService {
             if (isDescendant(nodeId, newParentId)) {
                 throw new IllegalArgumentException("Cannot move node to its own descendant");
             }
+        } else if (node.getParentId() != null && repository.hasRoot()) {
+            // moving to root level but root already exists
+            throw new IllegalArgumentException("Cannot move node to root level, root already exists");
         }
 
         node.setParentId(newParentId);

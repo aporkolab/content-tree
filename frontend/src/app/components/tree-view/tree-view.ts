@@ -126,7 +126,11 @@ export class TreeView implements OnInit {
           this.showNodeDialog = false;
           this.loadTree();
         },
-        error: (err) => console.error('Failed to create node:', err),
+        error: (err) => {
+          console.error('Failed to create node:', err);
+          this.showNodeDialog = false;
+          alert(err.error || 'Failed to create node');
+        },
       });
     } else if (this.editingNode) {
       this.treeService.updateNode(this.editingNode.id, request).subscribe({
@@ -135,7 +139,11 @@ export class TreeView implements OnInit {
           this.selectedNode = null;
           this.loadTree();
         },
-        error: (err) => console.error('Failed to update node:', err),
+        error: (err) => {
+          console.error('Failed to update node:', err);
+          this.showNodeDialog = false;
+          alert(err.error || 'Failed to update node');
+        },
       });
     }
   }
