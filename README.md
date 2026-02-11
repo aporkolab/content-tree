@@ -63,6 +63,9 @@ starts with an empty tree as specified in the requirements.
 - **JSON file storage** instead of database - the spec allows it, and for a
   tree structure JSON is actually a natural fit. In production would use a
   proper database with recursive CTEs.
+- **Tree rebuild on every request** - the repository rebuilds the full tree
+  from the flat node map on each call. With larger datasets I would add
+  caching to avoid this overhead.
 - **Recursive delete** - when deleting a non-leaf node, all children are
   deleted recursively. This is handled in the repository layer.
 - **Sample data available** - the app starts with empty tree per spec. If you

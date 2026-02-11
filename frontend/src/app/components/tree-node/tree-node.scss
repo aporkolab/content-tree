@@ -79,24 +79,35 @@ $primary: #4a90d9;
   &:hover .node-actions {
     opacity: 1;
   }
+
+  &.cdk-drop-list-receiving {
+    background: rgba($primary, 0.12);
+    outline: 1px dashed rgba($primary, 0.4);
+    outline-offset: -1px;
+  }
 }
 
 .children {
-  border-left: 1px solid #e8e8e8;
-  margin-left: 18px;
+  min-height: 4px;
+
+  &.has-children {
+    border-left: 1px solid #e8e8e8;
+    margin-left: 18px;
+    min-height: 0;
+  }
+
+  &.cdk-drop-list-receiving {
+    min-height: 8px;
+    margin-left: 18px;
+    background: rgba($primary, 0.1);
+    border: 1px dashed rgba($primary, 0.4);
+    border-radius: 3px;
+  }
 }
 
 // drag drop styles
 :host {
   display: block;
-}
-
-.cdk-drag-preview {
-  background: white;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  border-radius: 4px;
-  padding: 7px 12px;
-  font-size: 14px;
 }
 
 .cdk-drag-placeholder {

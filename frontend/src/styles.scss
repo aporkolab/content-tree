@@ -13,3 +13,13 @@ body {
 html, body {
   height: 100%;
 }
+
+// CDK drag preview - rendered outside components at body level
+.cdk-drag-preview {
+  background: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  padding: 7px 12px;
+  font-size: 14px;
+  font-family: inherit;
+}

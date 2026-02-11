@@ -5,6 +5,11 @@
   [style.padding-left.px]="level * 20 + 8"
   cdkDrag
   [cdkDragData]="node"
+  [cdkDragDisabled]="node.parentId === null"
+  #rowDropList="cdkDropList"
+  cdkDropList
+  [cdkDropListData]="node"
+  (cdkDropListDropped)="nodeDrop.emit($event)"
 >
   @if (hasChildren) {
     <span class="expand-toggle" (click)="toggleExpand($event)">
@@ -27,13 +32,15 @@
   </div>
 </div>
 
-@if (expanded && hasChildren) {
-  <div
-    class="children"
-    cdkDropList
-    [cdkDropListData]="node"
-    (cdkDropListDropped)="nodeDrop.emit($event)"
-  >
+<div
+  class="children"
+  [class.has-children]="expanded && hasChildren"
+  #childDropList="cdkDropList"
+  cdkDropList
+  [cdkDropListData]="node"
+  (cdkDropListDropped)="nodeDrop.emit($event)"
+>
+  @if (expanded && hasChildren) {
     @for (child of node.children; track child.id) {
       <app-tree-node
         [node]="child"
@@ -46,5 +53,5 @@
         (nodeDrop)="nodeDrop.emit($event)"
       />
     }
-  </div>
-}
+  }
+</div>

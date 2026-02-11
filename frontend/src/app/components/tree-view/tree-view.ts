@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
+import { CdkDragDrop } from '@angular/cdk/drag-drop';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { TreeNode, TreeNodeRequest } from '../../models/tree.model';
@@ -17,7 +17,6 @@ import { DeleteConfirm } from '../delete-confirm/delete-confirm';
   imports: [
     CommonModule,
     FormsModule,
-    DragDropModule,
     TreeNodeComponent,
     ContentPanel,
     NodeDialog,
