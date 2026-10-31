@@ -1,20 +1,19 @@
 package com.ptc.contenttree.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import jakarta.validation.constraints.Size;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class TreeNodeRequest {
+public record TreeNodeRequest(
+        @NotBlank(message = "Name is required")
+        @Size(max = TreeNodeRequest.NAME_MAX_LENGTH, message = "Name must be at most {max} characters")
+        String name,
 
-    @NotBlank(message = "Name is required")
-    private String name;
+        @NotBlank(message = "Content is required")
+        @Size(max = TreeNodeRequest.CONTENT_MAX_LENGTH, message = "Content must be at most {max} characters")
+        String content,
 
-    @NotBlank(message = "Content is required")
-    private String content;
+        Long parentId) {
 
-    private Long parentId;
+    public static final int NAME_MAX_LENGTH = 255;
+    public static final int CONTENT_MAX_LENGTH = 10_000;
 }

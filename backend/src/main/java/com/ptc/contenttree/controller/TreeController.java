@@ -5,25 +5,33 @@ import com.ptc.contenttree.dto.TreeNodeRequest;
 import com.ptc.contenttree.dto.TreeNodeResponse;
 import com.ptc.contenttree.service.TreeService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/tree")
-@RequiredArgsConstructor
 public class TreeController {
 
     private final TreeService service;
 
+    public TreeController(TreeService service) {
+        this.service = service;
+    }
+
     @GetMapping
     public ResponseEntity<TreeNodeResponse> getTree() {
-        TreeNodeResponse tree = service.getFullTree();
-        if (tree == null) {
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.ok(tree);
+        return service.getFullTree()
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     @GetMapping("/{id}")
@@ -52,16 +60,14 @@ public class TreeController {
 
     @PostMapping("/move")
     public ResponseEntity<Void> moveNode(@Valid @RequestBody MoveNodeRequest request) {
-        service.moveNode(request.getNodeId(), request.getNewParentId());
+        service.moveNode(request.nodeId(), request.newParentId());
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/search")
-    public ResponseEntity<TreeNodeResponse> search(@RequestParam String query) {
-        TreeNodeResponse result = service.search(query);
-        if (result == null) {
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.ok(result);
+    public ResponseEntity<TreeNodeResponse> search(@RequestParam(defaultValue = "") String query) {
+        return service.search(query)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 }
