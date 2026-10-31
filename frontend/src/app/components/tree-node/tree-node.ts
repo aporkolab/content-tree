@@ -1,79 +1,82 @@
 import {
-  Component,
-  Input,
-  Output,
-  EventEmitter,
-  ChangeDetectionStrategy,
-  ViewChild,
   AfterViewInit,
-  OnDestroy,
+  Component,
+  DestroyRef,
+  computed,
   inject,
+  input,
+  output,
+  signal,
+  viewChild,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CdkDragDrop, CdkDropList, DragDropModule } from '@angular/cdk/drag-drop';
-import { Subscription } from 'rxjs';
 import { TreeNode } from '../../models/tree.model';
 import { TreeDropService } from '../../services/tree-drop.service';
 
 @Component({
   selector: 'app-tree-node',
-  imports: [CommonModule, DragDropModule],
+  imports: [DragDropModule],
   templateUrl: './tree-node.html',
   styleUrl: './tree-node.scss',
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class TreeNodeComponent implements AfterViewInit, OnDestroy {
-  @Input({ required: true }) node!: TreeNode;
-  @Input() selectedId: number | null = null;
-  @Input() level = 0;
+export class TreeNodeComponent implements AfterViewInit {
+  readonly node = input.required<TreeNode>();
+  readonly selectedId = input<number | null>(null);
+  readonly level = input(0);
 
-  @Output() nodeSelect = new EventEmitter<TreeNode>();
-  @Output() nodeCreate = new EventEmitter<number>();
-  @Output() nodeEdit = new EventEmitter<TreeNode>();
-  @Output() nodeDelete = new EventEmitter<TreeNode>();
-  @Output() nodeDrop = new EventEmitter<CdkDragDrop<TreeNode>>();
+  readonly nodeSelect = output<TreeNode>();
+  readonly nodeCreate = output<number>();
+  readonly nodeEdit = output<TreeNode>();
+  readonly nodeDelete = output<TreeNode>();
+  readonly nodeDrop = output<CdkDragDrop<TreeNode>>();
 
-  @ViewChild('rowDropList', { static: true }) rowDropList!: CdkDropList;
-  @ViewChild('childDropList', { static: true }) childDropList!: CdkDropList;
+  private readonly rowDropList = viewChild.required<CdkDropList<TreeNode>>('rowDropList');
+  private readonly childDropList = viewChild.required<CdkDropList<TreeNode>>('childDropList');
 
   private readonly dropService = inject(TreeDropService);
-  private sub?: Subscription;
+  private readonly destroyRef = inject(DestroyRef);
 
-  expanded = true;
-
-  get isSelected(): boolean {
-    return this.node.id === this.selectedId;
-  }
-
-  get hasChildren(): boolean {
-    return this.node.children?.length > 0;
-  }
+  readonly expanded = signal(true);
+  readonly isSelected = computed(() => this.node().id === this.selectedId());
+  readonly isRoot = computed(() => this.node().parentId === null);
+  readonly hasChildren = computed(() => (this.node().children?.length ?? 0) > 0);
 
   ngAfterViewInit(): void {
-    this.dropService.register(this.rowDropList);
-    this.dropService.register(this.childDropList);
+    const row = this.rowDropList();
+    const children = this.childDropList();
+    this.dropService.register(row);
+    this.dropService.register(children);
 
-    this.sub = this.dropService.changed$.subscribe(() => {
-      this.connectLists();
+    this.dropService.changed$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.connectLists());
+
+    this.destroyRef.onDestroy(() => {
+      this.dropService.unregister(row);
+      this.dropService.unregister(children);
     });
 
+    // run once more after sibling nodes rendered in the same pass have registered
     setTimeout(() => this.connectLists());
-  }
-
-  ngOnDestroy(): void {
-    this.dropService.unregister(this.rowDropList);
-    this.dropService.unregister(this.childDropList);
-    this.sub?.unsubscribe();
   }
 
   toggleExpand(event: Event): void {
     event.stopPropagation();
-    this.expanded = !this.expanded;
+    event.preventDefault();
+    this.expanded.update((v) => !v);
+  }
+
+  select(event?: Event): void {
+    event?.preventDefault();
+    this.nodeSelect.emit(this.node());
   }
 
   private connectLists(): void {
     const all = this.dropService.getConnectedLists();
-    this.rowDropList.connectedTo = all.filter(l => l !== this.rowDropList);
-    this.childDropList.connectedTo = all.filter(l => l !== this.childDropList);
+    const row = this.rowDropList();
+    const children = this.childDropList();
+    row.connectedTo = all.filter((l) => l !== row);
+    children.connectedTo = all.filter((l) => l !== children);
   }
 }

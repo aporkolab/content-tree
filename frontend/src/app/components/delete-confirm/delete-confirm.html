@@ -1,22 +1,29 @@
-<div class="dialog-overlay" (click)="onOverlayClick($event)">
-  <div class="dialog">
+<div
+  class="dialog-overlay"
+  tabindex="-1"
+  (click)="onOverlayClick($event)"
+  (keydown.escape)="cancelled.emit()"
+>
+  <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-dialog-title">
     <div class="dialog-header">
-      <h3>Delete Node</h3>
+      <h3 id="delete-dialog-title">Delete Node</h3>
     </div>
 
     <div class="dialog-body">
       <p class="warning">
-        Are you sure you want to delete <strong>"{{ node.name }}"</strong>?
+        Are you sure you want to delete <strong>"{{ node().name }}"</strong>?
       </p>
 
-      @if (childCount > 0) {
+      @if (childCount() > 0) {
         <div class="affected-warning">
-          <strong>Warning:</strong> This will also delete {{ childCount }} child node{{ childCount > 1 ? 's' : '' }}.
+          <strong>Warning:</strong> This will also delete {{ childCount() }} child node{{
+            childCount() > 1 ? 's' : ''
+          }}.
         </div>
         <div class="affected-list">
           <p>The following nodes will be deleted:</p>
           <ul>
-            @for (name of affectedNodes; track $index) {
+            @for (name of affectedNodes(); track $index) {
               <li>{{ name }}</li>
             }
           </ul>
@@ -25,8 +32,10 @@
     </div>
 
     <div class="dialog-actions">
-      <button class="btn btn-secondary" (click)="cancel.emit()">Cancel</button>
-      <button class="btn btn-danger" (click)="confirm.emit()">Delete</button>
+      <button #cancelButton type="button" class="btn btn-secondary" (click)="cancelled.emit()">
+        Cancel
+      </button>
+      <button type="button" class="btn btn-danger" (click)="confirmed.emit()">Delete</button>
     </div>
   </div>
 </div>

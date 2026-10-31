@@ -2,9 +2,14 @@ import { Injectable } from '@angular/core';
 import { CdkDropList } from '@angular/cdk/drag-drop';
 import { Subject } from 'rxjs';
 
+/**
+ * Keeps track of every drop list rendered by the recursive tree so each one
+ * can be connected to all the others (nested cdkDropLists are not connected
+ * automatically).
+ */
 @Injectable({ providedIn: 'root' })
 export class TreeDropService {
-  private lists: CdkDropList[] = [];
+  private readonly lists: CdkDropList[] = [];
   readonly changed$ = new Subject<void>();
 
   register(list: CdkDropList): void {
@@ -22,7 +27,7 @@ export class TreeDropService {
     }
   }
 
-  getConnectedLists(): CdkDropList[] {
+  getConnectedLists(): readonly CdkDropList[] {
     return this.lists;
   }
 }

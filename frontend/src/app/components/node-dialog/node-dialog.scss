@@ -1,3 +1,4 @@
+@use 'sass:color';
 @use 'variables' as *;
 
 .dialog-overlay {
@@ -63,6 +64,6 @@ form { padding: 20px; }
 .btn {
   padding: 8px 18px; border: none; border-radius: 4px;
   cursor: pointer; font-size: 14px; font-weight: 500;
-  &.btn-primary { background: $primary; color: white; &:hover { background: darken($primary, 8%); } }
+  &.btn-primary { background: $primary; color: white; &:hover { background: color.adjust($primary, $lightness: -8%); } }
   &.btn-secondary { background: #f0f0f0; color: #555; &:hover { background: #e0e0e0; } }
 }

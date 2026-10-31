@@ -1,51 +1,86 @@
+@let current = node();
 <div
   class="tree-node"
-  [class.selected]="isSelected"
-  [class.non-match]="node.isMatch === false"
-  [style.padding-left.px]="level * 20 + 8"
+  [class.selected]="isSelected()"
+  [class.non-match]="current.isMatch === false"
+  [style.padding-left.px]="level() * 20 + 8"
   cdkDrag
-  [cdkDragData]="node"
-  [cdkDragDisabled]="node.parentId === null"
+  [cdkDragData]="current"
+  [cdkDragDisabled]="isRoot()"
   #rowDropList="cdkDropList"
   cdkDropList
-  [cdkDropListData]="node"
+  [cdkDropListData]="current"
   (cdkDropListDropped)="nodeDrop.emit($event)"
 >
-  @if (hasChildren) {
-    <span class="expand-toggle" (click)="toggleExpand($event)">
-      {{ expanded ? '\u25BC' : '\u25B6' }}
+  @if (hasChildren()) {
+    <span
+      class="expand-toggle"
+      role="button"
+      tabindex="0"
+      [attr.aria-expanded]="expanded()"
+      [attr.aria-label]="expanded() ? 'Collapse' : 'Expand'"
+      (click)="toggleExpand($event)"
+      (keydown.enter)="toggleExpand($event)"
+      (keydown.space)="toggleExpand($event)"
+    >
+      {{ expanded() ? '▼' : '▶' }}
     </span>
   } @else {
-    <span class="expand-toggle leaf">&bull;</span>
+    <span class="expand-toggle leaf" aria-hidden="true">&bull;</span>
   }
 
-  <span class="node-name" (click)="nodeSelect.emit(node)">
-    {{ node.name }}
+  <span
+    class="node-name"
+    role="button"
+    tabindex="0"
+    [attr.aria-current]="isSelected() ? 'true' : null"
+    (click)="select()"
+    (keydown.enter)="select($event)"
+    (keydown.space)="select($event)"
+  >
+    {{ current.name }}
   </span>
 
   <div class="node-actions">
-    <button (click)="nodeCreate.emit(node.id)" title="Add child">+</button>
-    <button (click)="nodeEdit.emit(node)" title="Edit">&#9998;</button>
-    @if (node.parentId !== null) {
-      <button (click)="nodeDelete.emit(node)" title="Delete" class="delete-btn">&times;</button>
+    <button
+      type="button"
+      (click)="nodeCreate.emit(current.id)"
+      title="Add child"
+      aria-label="Add child"
+    >
+      +
+    </button>
+    <button type="button" (click)="nodeEdit.emit(current)" title="Edit" aria-label="Edit">
+      &#9998;
+    </button>
+    @if (!isRoot()) {
+      <button
+        type="button"
+        (click)="nodeDelete.emit(current)"
+        title="Delete"
+        aria-label="Delete"
+        class="delete-btn"
+      >
+        &times;
+      </button>
     }
   </div>
 </div>
 
 <div
   class="children"
-  [class.has-children]="expanded && hasChildren"
+  [class.has-children]="expanded() && hasChildren()"
   #childDropList="cdkDropList"
   cdkDropList
-  [cdkDropListData]="node"
+  [cdkDropListData]="current"
   (cdkDropListDropped)="nodeDrop.emit($event)"
 >
-  @if (expanded && hasChildren) {
-    @for (child of node.children; track child.id) {
+  @if (expanded() && hasChildren()) {
+    @for (child of current.children; track child.id) {
       <app-tree-node
         [node]="child"
-        [selectedId]="selectedId"
-        [level]="level + 1"
+        [selectedId]="selectedId()"
+        [level]="level() + 1"
         (nodeSelect)="nodeSelect.emit($event)"
         (nodeCreate)="nodeCreate.emit($event)"
         (nodeEdit)="nodeEdit.emit($event)"

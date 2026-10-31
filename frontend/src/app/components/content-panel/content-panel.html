@@ -1,33 +1,55 @@
+@let current = node();
 <div class="content-header">
   <div class="header-row">
-    <h2>{{ node.name }}</h2>
+    <h2>{{ current.name }}</h2>
     <div class="action-buttons">
-      <button class="btn btn-new" (click)="addChild.emit(node.id)" title="Add child node">+ New</button>
-      <button class="btn btn-edit" (click)="edit.emit(node)" title="Edit this node">Edit</button>
-      @if (!isRoot) {
-        <button class="btn btn-delete" (click)="delete.emit(node)" title="Delete this node">Delete</button>
+      <button
+        type="button"
+        class="btn btn-new"
+        (click)="addChild.emit(current.id)"
+        title="Add child node"
+      >
+        + New
+      </button>
+      <button
+        type="button"
+        class="btn btn-edit"
+        (click)="edit.emit(current)"
+        title="Edit this node"
+      >
+        Edit
+      </button>
+      @if (!isRoot()) {
+        <button
+          type="button"
+          class="btn btn-delete"
+          (click)="delete.emit(current)"
+          title="Delete this node"
+        >
+          Delete
+        </button>
       }
     </div>
   </div>
   <div class="meta">
-    <span class="badge">ID: {{ node.id }}</span>
-    @if (node.parentId) {
-      <span class="badge">Parent: {{ node.parentId }}</span>
-    } @else {
+    <span class="badge">ID: {{ current.id }}</span>
+    @if (isRoot()) {
       <span class="badge root">Root Node</span>
+    } @else {
+      <span class="badge">Parent: {{ current.parentId }}</span>
     }
   </div>
 </div>
 
 <div class="content-body">
-  <p>{{ node.content }}</p>
+  <p>{{ current.content }}</p>
 </div>
 
-@if (node.children && node.children.length > 0) {
+@if (children().length > 0) {
   <div class="children-info">
-    <h3>Children ({{ node.children.length }})</h3>
+    <h3>Children ({{ children().length }})</h3>
     <ul>
-      @for (child of node.children; track child.id) {
+      @for (child of children(); track child.id) {
         <li>{{ child.name }}</li>
       }
     </ul>
