@@ -1,51 +1,48 @@
-import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import {
+  Component,
+  ElementRef,
+  afterNextRender,
+  computed,
+  input,
+  output,
+  viewChild,
+} from '@angular/core';
 import { TreeNode } from '../../models/tree.model';
 
 @Component({
   selector: 'app-delete-confirm',
-  imports: [CommonModule],
   templateUrl: './delete-confirm.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './delete-confirm.scss',
 })
 export class DeleteConfirm {
-  @Input({ required: true }) node!: TreeNode;
+  readonly node = input.required<TreeNode>();
 
-  @Output() confirm = new EventEmitter<void>();
-  @Output() cancel = new EventEmitter<void>();
+  readonly confirmed = output<void>();
+  readonly cancelled = output<void>();
 
-  get childCount(): number {
-    return this.countChildren(this.node);
-  }
-
-  get affectedNodes(): string[] {
+  /** Names of the node and every descendant, depth first. */
+  readonly affectedNodes = computed(() => {
     const names: string[] = [];
-    this.collectNames(this.node, names);
+    const collect = (n: TreeNode): void => {
+      names.push(n.name);
+      (n.children ?? []).forEach(collect);
+    };
+    collect(this.node());
     return names;
-  }
+  });
 
-  private countChildren(node: TreeNode): number {
-    if (!node.children) return 0;
-    let count = node.children.length;
-    for (const child of node.children) {
-      count += this.countChildren(child);
-    }
-    return count;
-  }
+  readonly childCount = computed(() => this.affectedNodes().length - 1);
 
-  private collectNames(node: TreeNode, names: string[]): void {
-    names.push(node.name);
-    if (node.children) {
-      for (const child of node.children) {
-        this.collectNames(child, names);
-      }
-    }
+  private readonly cancelButton = viewChild.required<ElementRef<HTMLButtonElement>>('cancelButton');
+
+  constructor() {
+    // focus inside the dialog so Escape reaches the overlay's key handler
+    afterNextRender(() => this.cancelButton().nativeElement.focus());
   }
 
   onOverlayClick(event: MouseEvent): void {
-    if ((event.target as HTMLElement).classList.contains('dialog-overlay')) {
-      this.cancel.emit();
+    if (event.target === event.currentTarget) {
+      this.cancelled.emit();
     }
   }
 }

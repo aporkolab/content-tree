@@ -1,199 +1,178 @@
-import {
-  Component,
-  OnInit,
-  inject,
-  ChangeDetectorRef,
-  ChangeDetectionStrategy,
-} from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CdkDragDrop } from '@angular/cdk/drag-drop';
-import { BehaviorSubject, of, Subject } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+import { Observable, Subject, merge, of } from 'rxjs';
+import {
+  catchError,
+  debounceTime,
+  distinctUntilChanged,
+  map,
+  switchMap,
+  tap,
+} from 'rxjs/operators';
 import { TreeNode, TreeNodeRequest } from '../../models/tree.model';
-import { TreeService } from '../../services/tree.service';
+import { TreeService, findNodeById, toErrorMessage } from '../../services/tree.service';
 import { TreeNodeComponent } from '../tree-node/tree-node';
 import { ContentPanel } from '../content-panel/content-panel';
 import { NodeDialog } from '../node-dialog/node-dialog';
 import { DeleteConfirm } from '../delete-confirm/delete-confirm';
 
+export type DialogState =
+  | { kind: 'none' }
+  | { kind: 'create'; parentId: number | null }
+  | { kind: 'edit'; node: TreeNode }
+  | { kind: 'delete'; node: TreeNode };
+
+const ERROR_TOAST_MS = 5000;
+const SEARCH_DEBOUNCE_MS = 300;
+
 @Component({
   selector: 'app-tree-view',
-  imports: [CommonModule, FormsModule, TreeNodeComponent, ContentPanel, NodeDialog, DeleteConfirm],
+  imports: [TreeNodeComponent, ContentPanel, NodeDialog, DeleteConfirm],
   templateUrl: './tree-view.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './tree-view.scss',
 })
-export class TreeView implements OnInit {
+export class TreeView {
   private readonly treeService = inject(TreeService);
-  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly destroyRef = inject(DestroyRef);
 
-  tree$ = new BehaviorSubject<TreeNode | null>(null);
-  selectedNode: TreeNode | null = null;
-  searchQuery = '';
-  loading = false;
-  errorMessage = '';
+  readonly tree = signal<TreeNode | null>(null);
+  readonly loading = signal(true);
+  readonly errorMessage = signal('');
+  readonly searchQuery = signal('');
+  readonly dialog = signal<DialogState>({ kind: 'none' });
 
-  // dialog state
-  showNodeDialog = false;
-  dialogMode: 'create' | 'edit' = 'create';
-  dialogParentId: number | null = null;
-  editingNode: TreeNode | null = null;
+  private readonly selectedId = signal<number | null>(null);
+  /** Re-resolved on every reload, so it is never a stale copy (and null once deleted). */
+  readonly selectedNode = computed(() => findNodeById(this.tree(), this.selectedId()));
 
-  showDeleteDialog = false;
-  deletingNode: TreeNode | null = null;
+  private readonly search$ = new Subject<string>();
+  private readonly reload$ = new Subject<void>();
+  private errorTimer?: ReturnType<typeof setTimeout>;
 
-  private searchSubject = new Subject<string>();
-
-  ngOnInit(): void {
-    this.loadTree();
-
-    this.searchSubject
+  constructor() {
+    // A single pipeline for searches and reloads: switchMap drops stale
+    // responses, and reloads keep the active search filter.
+    merge(
+      this.search$.pipe(debounceTime(SEARCH_DEBOUNCE_MS), distinctUntilChanged()),
+      this.reload$.pipe(map(() => this.searchQuery())),
+    )
       .pipe(
-        debounceTime(300),
-        distinctUntilChanged(),
         switchMap((query) =>
-          (query ? this.treeService.searchTree(query) : this.treeService.getTree()).pipe(
-            catchError(() => of(null)),
+          this.fetchTree(query).pipe(
+            catchError((err: unknown) => {
+              this.showError(toErrorMessage(err, 'Failed to load tree'));
+              return of(this.tree());
+            }),
           ),
         ),
+        takeUntilDestroyed(),
       )
       .subscribe((tree) => {
-        this.tree$.next(tree);
-        this.cdr.markForCheck();
+        this.tree.set(tree);
+        this.loading.set(false);
       });
+
+    this.destroyRef.onDestroy(() => clearTimeout(this.errorTimer));
+    this.reload();
   }
 
-  loadTree(): void {
-    this.loading = true;
-    this.treeService.getTree().subscribe({
-      next: (tree) => {
-        this.tree$.next(tree);
-        this.loading = false;
-        this.refreshSelectedNode(tree);
-      },
-      error: () => {
-        this.loading = false;
-      },
-    });
+  private fetchTree(query: string): Observable<TreeNode | null> {
+    const trimmed = query.trim();
+    return trimmed ? this.treeService.searchTree(trimmed) : this.treeService.getTree();
   }
 
-  private refreshSelectedNode(tree: TreeNode | null): void {
-    if (!this.selectedNode || !tree) return;
-    const found = this.findNodeById(tree, this.selectedNode.id);
-    this.selectedNode = found ?? null;
-  }
-
-  private findNodeById(node: TreeNode, id: number): TreeNode | null {
-    if (node.id === id) return node;
-    for (const child of node.children ?? []) {
-      const found = this.findNodeById(child, id);
-      if (found) return found;
-    }
-    return null;
+  reload(): void {
+    this.reload$.next();
   }
 
   onSearch(query: string): void {
-    this.searchSubject.next(query);
+    this.searchQuery.set(query);
+    this.search$.next(query);
   }
 
   onNodeSelect(node: TreeNode): void {
-    this.selectedNode = node;
+    this.selectedId.set(node.id);
   }
 
   onNodeDrop(event: CdkDragDrop<TreeNode>): void {
     const movedNode = event.item.data as TreeNode;
-    const newParent = event.container.data as TreeNode;
+    const newParent = event.container.data;
 
-    if (movedNode.id !== newParent.id && movedNode.parentId !== newParent.id) {
-      this.treeService.moveNode(movedNode.id, newParent.id).subscribe({
-        next: () => this.loadTree(),
-        error: (err) => {
-          console.error('Failed to move node:', err);
-          this.loadTree();
-        },
-      });
+    if (movedNode.id === newParent.id || movedNode.parentId === newParent.id) {
+      return;
     }
+    this.treeService
+      .moveNode(movedNode.id, newParent.id)
+      .pipe(this.reloadAfter('Failed to move node'))
+      .subscribe();
   }
 
   openCreateDialog(parentId: number | null): void {
-    this.dialogMode = 'create';
-    this.dialogParentId = parentId;
-    this.editingNode = null;
-    this.showNodeDialog = true;
+    this.dialog.set({ kind: 'create', parentId });
   }
 
   openEditDialog(node: TreeNode): void {
-    this.dialogMode = 'edit';
-    this.editingNode = node;
-    this.dialogParentId = node.parentId;
-    this.showNodeDialog = true;
+    this.dialog.set({ kind: 'edit', node });
   }
 
   openDeleteConfirm(node: TreeNode): void {
-    this.deletingNode = node;
-    this.showDeleteDialog = true;
+    this.dialog.set({ kind: 'delete', node });
+  }
+
+  closeDialog(): void {
+    this.dialog.set({ kind: 'none' });
   }
 
   onDialogSave(request: TreeNodeRequest): void {
-    if (this.dialogMode === 'create') {
-      this.treeService.createNode(request).subscribe({
-        next: () => {
-          this.showNodeDialog = false;
-          this.loadTree();
-        },
-        error: (err) => {
-          console.error('Failed to create node:', err);
-          this.showNodeDialog = false;
-          this.showError(err.error || 'Failed to create node');
-        },
-      });
-    } else if (this.editingNode) {
-      this.treeService.updateNode(this.editingNode.id, request).subscribe({
-        next: () => {
-          this.showNodeDialog = false;
-          this.loadTree();
-        },
-        error: (err) => {
-          console.error('Failed to update node:', err);
-          this.showNodeDialog = false;
-          this.showError(err.error || 'Failed to update node');
-        },
-      });
+    const state = this.dialog();
+    let request$: Observable<unknown>;
+    let failure: string;
+    if (state.kind === 'create') {
+      request$ = this.treeService.createNode(request);
+      failure = 'Failed to create node';
+    } else if (state.kind === 'edit') {
+      request$ = this.treeService.updateNode(state.node.id, request);
+      failure = 'Failed to update node';
+    } else {
+      return;
     }
-  }
 
-  onDialogCancel(): void {
-    this.showNodeDialog = false;
+    this.closeDialog();
+    request$.pipe(this.reloadAfter(failure)).subscribe();
   }
 
   onDeleteConfirm(): void {
-    if (this.deletingNode) {
-      this.treeService.deleteNode(this.deletingNode.id).subscribe({
-        next: () => {
-          this.showDeleteDialog = false;
-          if (this.selectedNode?.id === this.deletingNode?.id) {
-            this.selectedNode = null;
-          }
-          this.deletingNode = null;
-          this.loadTree();
-        },
-        error: (err) => {
-          console.error('Failed to delete node:', err);
-          this.showError(err.error || 'Failed to delete node');
-          this.showDeleteDialog = false;
-        },
-      });
+    const state = this.dialog();
+    if (state.kind !== 'delete') {
+      return;
     }
+    this.closeDialog();
+    this.treeService
+      .deleteNode(state.node.id)
+      .pipe(this.reloadAfter('Failed to delete node'))
+      .subscribe();
   }
 
-  onDeleteCancel(): void {
-    this.showDeleteDialog = false;
-    this.deletingNode = null;
+  /** Reloads the tree once the request settles; failures are shown as a toast. */
+  private reloadAfter<T>(failure: string) {
+    return (source: Observable<T>) =>
+      source.pipe(
+        tap({
+          next: () => this.reload(),
+          error: (err: unknown) => {
+            this.showError(toErrorMessage(err, failure));
+            this.reload();
+          },
+        }),
+        catchError(() => of(null)),
+        takeUntilDestroyed(this.destroyRef),
+      );
   }
 
   private showError(message: string): void {
-    this.errorMessage = message;
-    setTimeout(() => (this.errorMessage = ''), 5000);
+    clearTimeout(this.errorTimer);
+    this.errorMessage.set(message);
+    this.errorTimer = setTimeout(() => this.errorMessage.set(''), ERROR_TOAST_MS);
   }
 }

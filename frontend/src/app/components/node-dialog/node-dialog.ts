@@ -1,67 +1,93 @@
 import {
   Component,
-  Input,
-  Output,
-  EventEmitter,
+  ElementRef,
   OnInit,
-  ChangeDetectionStrategy,
+  afterNextRender,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { TreeNode, TreeNodeRequest } from '../../models/tree.model';
+import {
+  AbstractControl,
+  NonNullableFormBuilder,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
+import {
+  CONTENT_MAX_LENGTH,
+  NAME_MAX_LENGTH,
+  TreeNode,
+  TreeNodeRequest,
+} from '../../models/tree.model';
+
+/** Like Validators.required, but also rejects whitespace-only input (mirrors @NotBlank). */
+function notBlank(control: AbstractControl<string>): ValidationErrors | null {
+  return control.value.trim() ? null : { required: true };
+}
 
 @Component({
   selector: 'app-node-dialog',
-  imports: [CommonModule, FormsModule],
+  imports: [ReactiveFormsModule],
   templateUrl: './node-dialog.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './node-dialog.scss',
 })
 export class NodeDialog implements OnInit {
-  @Input() mode: 'create' | 'edit' = 'create';
-  @Input() parentId: number | null = null;
-  @Input() node: TreeNode | null = null;
+  readonly mode = input<'create' | 'edit'>('create');
+  readonly parentId = input<number | null>(null);
+  readonly node = input<TreeNode | null>(null);
 
-  @Output() save = new EventEmitter<TreeNodeRequest>();
-  @Output() cancel = new EventEmitter<void>();
+  readonly saved = output<TreeNodeRequest>();
+  readonly cancelled = output<void>();
 
-  name = '';
-  content = '';
-  submitted = false;
+  readonly nameMaxLength = NAME_MAX_LENGTH;
+  readonly contentMaxLength = CONTENT_MAX_LENGTH;
 
-  get title(): string {
-    return this.mode === 'create' ? 'Create Node' : 'Edit Node';
+  readonly form = inject(NonNullableFormBuilder).group({
+    name: ['', [notBlank, Validators.maxLength(NAME_MAX_LENGTH)]],
+    content: ['', [notBlank, Validators.maxLength(CONTENT_MAX_LENGTH)]],
+  });
+
+  readonly submitted = signal(false);
+  readonly title = computed(() => (this.mode() === 'create' ? 'Create Node' : 'Edit Node'));
+
+  private readonly nameInput = viewChild.required<ElementRef<HTMLInputElement>>('nameInput');
+
+  constructor() {
+    afterNextRender(() => this.nameInput().nativeElement.focus());
   }
 
   ngOnInit(): void {
-    if (this.mode === 'edit' && this.node) {
-      this.name = this.node.name;
-      this.content = this.node.content;
+    const node = this.node();
+    if (this.mode() === 'edit' && node) {
+      this.form.setValue({ name: node.name, content: node.content });
     }
+  }
+
+  showError(control: 'name' | 'content'): boolean {
+    return this.submitted() && this.form.controls[control].invalid;
   }
 
   onSubmit(): void {
-    this.submitted = true;
-    if (!this.name.trim() || !this.content.trim()) {
+    this.submitted.set(true);
+    if (this.form.invalid) {
       return;
     }
 
-    const request: TreeNodeRequest = {
-      name: this.name.trim(),
-      content: this.content.trim(),
-      parentId: this.mode === 'create' ? this.parentId : (this.node?.parentId ?? null),
-    };
-
-    this.save.emit(request);
-  }
-
-  onCancel(): void {
-    this.cancel.emit();
+    const { name, content } = this.form.getRawValue();
+    this.saved.emit({
+      name: name.trim(),
+      content: content.trim(),
+      parentId: this.mode() === 'create' ? this.parentId() : (this.node()?.parentId ?? null),
+    });
   }
 
   onOverlayClick(event: MouseEvent): void {
-    if ((event.target as HTMLElement).classList.contains('dialog-overlay')) {
-      this.onCancel();
+    if (event.target === event.currentTarget) {
+      this.cancelled.emit();
     }
   }
 }
