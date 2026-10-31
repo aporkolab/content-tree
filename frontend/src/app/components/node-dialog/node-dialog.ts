@@ -1,4 +1,11 @@
-import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import {
+  Component,
+  Input,
+  Output,
+  EventEmitter,
+  OnInit,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TreeNode, TreeNodeRequest } from '../../models/tree.model';
@@ -7,6 +14,7 @@ import { TreeNode, TreeNodeRequest } from '../../models/tree.model';
   selector: 'app-node-dialog',
   imports: [CommonModule, FormsModule],
   templateUrl: './node-dialog.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './node-dialog.scss',
 })
 export class NodeDialog implements OnInit {
@@ -41,7 +49,7 @@ export class NodeDialog implements OnInit {
     const request: TreeNodeRequest = {
       name: this.name.trim(),
       content: this.content.trim(),
-      parentId: this.mode === 'create' ? this.parentId : this.node?.parentId ?? null,
+      parentId: this.mode === 'create' ? this.parentId : (this.node?.parentId ?? null),
     };
 
     this.save.emit(request);

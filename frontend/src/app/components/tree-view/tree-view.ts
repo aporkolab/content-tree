@@ -1,4 +1,10 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  inject,
+  ChangeDetectorRef,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CdkDragDrop } from '@angular/cdk/drag-drop';
@@ -13,15 +19,9 @@ import { DeleteConfirm } from '../delete-confirm/delete-confirm';
 
 @Component({
   selector: 'app-tree-view',
-  imports: [
-    CommonModule,
-    FormsModule,
-    TreeNodeComponent,
-    ContentPanel,
-    NodeDialog,
-    DeleteConfirm,
-  ],
+  imports: [CommonModule, FormsModule, TreeNodeComponent, ContentPanel, NodeDialog, DeleteConfirm],
   templateUrl: './tree-view.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './tree-view.scss',
 })
 export class TreeView implements OnInit {
@@ -54,9 +54,9 @@ export class TreeView implements OnInit {
         distinctUntilChanged(),
         switchMap((query) =>
           (query ? this.treeService.searchTree(query) : this.treeService.getTree()).pipe(
-            catchError(() => of(null))
-          )
-        )
+            catchError(() => of(null)),
+          ),
+        ),
       )
       .subscribe((tree) => {
         this.tree$.next(tree);
@@ -194,6 +194,6 @@ export class TreeView implements OnInit {
 
   private showError(message: string): void {
     this.errorMessage = message;
-    setTimeout(() => this.errorMessage = '', 5000);
+    setTimeout(() => (this.errorMessage = ''), 5000);
   }
 }
