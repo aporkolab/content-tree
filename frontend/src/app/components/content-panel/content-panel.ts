@@ -1,21 +1,18 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, computed, input, output } from '@angular/core';
 import { TreeNode } from '../../models/tree.model';
 
 @Component({
   selector: 'app-content-panel',
-  imports: [CommonModule],
   templateUrl: './content-panel.html',
   styleUrl: './content-panel.scss',
 })
 export class ContentPanel {
-  @Input({ required: true }) node!: TreeNode;
+  readonly node = input.required<TreeNode>();
 
-  @Output() addChild = new EventEmitter<number>();
-  @Output() edit = new EventEmitter<TreeNode>();
-  @Output() delete = new EventEmitter<TreeNode>();
+  readonly addChild = output<number>();
+  readonly edit = output<TreeNode>();
+  readonly delete = output<TreeNode>();
 
-  get isRoot(): boolean {
-    return this.node.parentId === null;
-  }
+  readonly isRoot = computed(() => this.node().parentId === null);
+  readonly children = computed(() => this.node().children ?? []);
 }

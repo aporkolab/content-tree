@@ -1,146 +1,134 @@
 package com.ptc.contenttree.repository;
 
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.ObjectMapper;
+import com.ptc.contenttree.config.ContentTreeProperties;
 import com.ptc.contenttree.model.TreeNode;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
-import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.*;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Deque;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
+/**
+ * In-memory node store backed by a JSON file. Every write rewrites the whole
+ * file atomically (temp file + move), so a crash never leaves a half-written
+ * tree behind.
+ */
 @Repository
 public class TreeRepository {
 
     private static final Logger log = LoggerFactory.getLogger(TreeRepository.class);
-    private static final String DATA_DIR = "data";
-    private static final String DATA_FILE = "data/tree.json";
 
     private final ObjectMapper objectMapper;
-    private Map<Long, TreeNode> nodes = new ConcurrentHashMap<>();
-    private AtomicLong idGenerator = new AtomicLong(1);
+    private final Path dataFile;
+    private final Map<Long, TreeNode> nodes = new ConcurrentHashMap<>();
+    private final AtomicLong idGenerator = new AtomicLong(1);
 
-    public TreeRepository(ObjectMapper objectMapper) {
+    public TreeRepository(ObjectMapper objectMapper, ContentTreeProperties properties) {
         this.objectMapper = objectMapper;
+        this.dataFile = properties.dataFile();
     }
 
     @PostConstruct
     public void init() {
         try {
-            Path dataDir = Paths.get(DATA_DIR);
+            Path dataDir = dataFile.toAbsolutePath().getParent();
             if (!Files.exists(dataDir)) {
                 Files.createDirectories(dataDir);
-                log.info("Created data directory: {}", dataDir.toAbsolutePath());
+                log.info("Created data directory: {}", dataDir);
             }
 
-            File file = new File(DATA_FILE);
-            if (file.exists() && file.length() > 0) {
-                List<TreeNode> loaded = objectMapper.readValue(file, new TypeReference<List<TreeNode>>() {});
+            if (Files.exists(dataFile) && Files.size(dataFile) > 0) {
+                List<TreeNode> loaded = objectMapper.readValue(dataFile.toFile(), new TypeReference<List<TreeNode>>() {});
                 for (TreeNode node : loaded) {
-                    nodes.put(node.getId(), node);
-                    if (node.getId() >= idGenerator.get()) {
-                        idGenerator.set(node.getId() + 1);
-                    }
+                    nodes.put(node.id(), node);
+                    idGenerator.accumulateAndGet(node.id() + 1, Math::max);
                 }
-                log.info("Loaded {} nodes from {}", nodes.size(), DATA_FILE);
+                log.info("Loaded {} nodes from {}", nodes.size(), dataFile);
             } else {
                 log.info("No existing data found, starting with empty tree");
             }
-        } catch (Exception e) {
-            log.error("Failed to load tree data: {}", e.getMessage());
+        } catch (IOException | JacksonException e) {
+            // Refuse to start: continuing with an empty tree would overwrite the
+            // existing (possibly only slightly broken) file on the first write.
+            throw new IllegalStateException("Failed to load tree data from " + dataFile.toAbsolutePath(), e);
         }
     }
 
-    public TreeNode save(TreeNode node) {
-        if (node.getId() == null) {
-            node.setId(idGenerator.getAndIncrement());
+    public synchronized TreeNode save(TreeNode node) {
+        TreeNode toStore = node.id() == null ? node.withId(idGenerator.getAndIncrement()) : node;
+        TreeNode previous = nodes.put(toStore.id(), toStore);
+        try {
+            saveToFile();
+        } catch (UncheckedIOException e) {
+            // keep memory and disk consistent
+            if (previous == null) {
+                nodes.remove(toStore.id());
+            } else {
+                nodes.put(previous.id(), previous);
+            }
+            throw e;
         }
-        nodes.put(node.getId(), node);
-        saveToFile();
-        return node;
+        return toStore;
     }
 
     public Optional<TreeNode> findById(Long id) {
         return Optional.ofNullable(nodes.get(id));
     }
 
+    /** Snapshot of all nodes, ordered by id. */
     public List<TreeNode> findAll() {
-        return new ArrayList<>(nodes.values());
-    }
-
-    public List<TreeNode> getChildren(Long parentId) {
         return nodes.values().stream()
-                .filter(n -> Objects.equals(n.getParentId(), parentId))
-                .collect(Collectors.toList());
+                .sorted(Comparator.comparing(TreeNode::id))
+                .toList();
     }
 
-    public void deleteWithChildren(Long id) {
-        TreeNode node = nodes.get(id);
-        if (node != null) {
-            collectSubtreeIds(id).forEach(nodes::remove);
-            saveToFile();
+    public synchronized void deleteWithChildren(Long id) {
+        if (!nodes.containsKey(id)) {
+            return;
         }
-    }
-
-    private List<Long> collectSubtreeIds(Long id) {
-        List<Long> ids = new ArrayList<>();
-        ids.add(id);
-        getChildren(id).forEach(child -> ids.addAll(collectSubtreeIds(child.getId())));
-        return ids;
-    }
-
-    public void delete(Long id) {
-        nodes.remove(id);
-        saveToFile();
-    }
-
-    public TreeNode buildTree() {
-        // find root node (parentId is null)
-        TreeNode root = nodes.values().stream()
-                .filter(n -> n.getParentId() == null)
-                .findFirst()
-                .orElse(null);
-
-        if (root == null) {
-            return null;
-        }
-
-        buildChildren(root);
-        return root;
-    }
-
-    private void buildChildren(TreeNode parent) {
-        List<TreeNode> children = getChildren(parent.getId());
-        parent.setChildren(children);
-        for (TreeNode child : children) {
-            buildChildren(child);
-        }
-    }
-
-    private void saveToFile() {
+        List<TreeNode> removed = collectSubtreeIds(id).stream()
+                .map(nodes::remove)
+                .filter(Objects::nonNull)
+                .toList();
         try {
-            List<TreeNode> snapshot = nodes.values().stream()
-                    .map(n -> {
-                        TreeNode copy = new TreeNode();
-                        copy.setId(n.getId());
-                        copy.setName(n.getName());
-                        copy.setContent(n.getContent());
-                        copy.setParentId(n.getParentId());
-                        return copy;
-                    })
-                    .toList();
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(new File(DATA_FILE), snapshot);
-        } catch (Exception e) {
-            log.error("Failed to save tree data: {}", e.getMessage());
+            saveToFile();
+        } catch (UncheckedIOException e) {
+            removed.forEach(n -> nodes.put(n.id(), n));
+            throw e;
         }
+    }
+
+    private List<Long> collectSubtreeIds(Long rootId) {
+        List<Long> ids = new ArrayList<>();
+        Deque<Long> pending = new ArrayDeque<>();
+        pending.push(rootId);
+        while (!pending.isEmpty()) {
+            Long current = pending.pop();
+            ids.add(current);
+            nodes.values().stream()
+                    .filter(n -> current.equals(n.parentId()))
+                    .forEach(child -> pending.push(child.id()));
+        }
+        return ids;
     }
 
     public boolean existsById(Long id) {
@@ -148,10 +136,25 @@ public class TreeRepository {
     }
 
     public boolean hasRoot() {
-        return nodes.values().stream().anyMatch(n -> n.getParentId() == null);
+        return nodes.values().stream().anyMatch(TreeNode::isRoot);
     }
 
     public long count() {
         return nodes.size();
+    }
+
+    private void saveToFile() {
+        try {
+            Path tmp = dataFile.resolveSibling(dataFile.getFileName() + ".tmp");
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(tmp.toFile(), findAll());
+            try {
+                Files.move(tmp, dataFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(tmp, dataFile, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException | JacksonException e) {
+            throw new UncheckedIOException("Failed to save tree data to " + dataFile.toAbsolutePath(),
+                    e instanceof IOException io ? io : new IOException(e));
+        }
     }
 }

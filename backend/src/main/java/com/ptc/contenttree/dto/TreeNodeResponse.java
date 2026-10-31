@@ -1,22 +1,19 @@
 package com.ptc.contenttree.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.util.List;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
+/**
+ * Node as returned by the API. {@code isMatch} is only set on search results:
+ * {@code true} when the node itself matches the query.
+ */
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class TreeNodeResponse {
-
-    private Long id;
-    private String name;
-    private String content;
-    private Long parentId;
-    private List<TreeNodeResponse> children;
-    private Boolean isMatch;
+public record TreeNodeResponse(
+        Long id,
+        String name,
+        String content,
+        Long parentId,
+        List<TreeNodeResponse> children,
+        Boolean isMatch) {
 }

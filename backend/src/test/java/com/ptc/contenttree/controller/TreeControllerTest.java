@@ -4,7 +4,9 @@ import tools.jackson.databind.ObjectMapper;
 import com.ptc.contenttree.dto.MoveNodeRequest;
 import com.ptc.contenttree.dto.TreeNodeRequest;
 import com.ptc.contenttree.dto.TreeNodeResponse;
+import com.ptc.contenttree.exception.InvalidTreeOperationException;
 import com.ptc.contenttree.exception.NodeNotFoundException;
+import com.ptc.contenttree.exception.RootNodeDeletionException;
 import com.ptc.contenttree.service.TreeService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,8 +15,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -34,11 +36,10 @@ class TreeControllerTest {
 
     @Test
     void shouldReturnFullTree() throws Exception {
-        TreeNodeResponse root = createResponse(1L, "Root", "Root content", null);
         TreeNodeResponse child = createResponse(2L, "Child", "Child content", 1L);
-        root.setChildren(List.of(child));
+        TreeNodeResponse root = new TreeNodeResponse(1L, "Root", "Root content", null, List.of(child), null);
 
-        when(service.getFullTree()).thenReturn(root);
+        when(service.getFullTree()).thenReturn(Optional.of(root));
 
         mockMvc.perform(get("/api/tree"))
                 .andExpect(status().isOk())
@@ -139,13 +140,10 @@ class TreeControllerTest {
 
     @Test
     void shouldSearchNodes() throws Exception {
-        TreeNodeResponse root = createResponse(1L, "Root", "Root content", null);
-        root.setIsMatch(false);
-        TreeNodeResponse child = createResponse(2L, "Documents", "Important docs", 1L);
-        child.setIsMatch(true);
-        root.setChildren(List.of(child));
+        TreeNodeResponse child = new TreeNodeResponse(2L, "Documents", "Important docs", 1L, List.of(), true);
+        TreeNodeResponse root = new TreeNodeResponse(1L, "Root", "Root content", null, List.of(child), false);
 
-        when(service.search("doc")).thenReturn(root);
+        when(service.search("doc")).thenReturn(Optional.of(root));
 
         mockMvc.perform(get("/api/tree/search").param("query", "doc"))
                 .andExpect(status().isOk())
@@ -164,23 +162,84 @@ class TreeControllerTest {
     @Test
     void shouldReturnBadRequestForInvalidMove() throws Exception {
         MoveNodeRequest request = new MoveNodeRequest(1L, 2L);
-        doThrow(new IllegalArgumentException("Cannot move node to its own descendant"))
+        doThrow(new InvalidTreeOperationException("Cannot move node to its own descendant"))
                 .when(service).moveNode(1L, 2L);
 
         mockMvc.perform(post("/api/tree/move")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Cannot move node to its own descendant"));
+    }
+
+    @Test
+    void shouldReturnNoContentWhenTreeIsEmpty() throws Exception {
+        when(service.getFullTree()).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/tree"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void shouldReturnConflictWhenDeletingRoot() throws Exception {
+        doThrow(new RootNodeDeletionException()).when(service).delete(1L);
+
+        mockMvc.perform(delete("/api/tree/1"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("Cannot delete root node"));
+    }
+
+    @Test
+    void shouldReportFieldErrorsAsProblemDetail() throws Exception {
+        TreeNodeRequest request = new TreeNodeRequest("", "", null);
+
+        mockMvc.perform(post("/api/tree")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Validation failed"))
+                .andExpect(jsonPath("$.errors.name").value("Name is required"))
+                .andExpect(jsonPath("$.errors.content").value("Content is required"));
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void shouldRejectTooLongName() throws Exception {
+        TreeNodeRequest request = new TreeNodeRequest("x".repeat(TreeNodeRequest.NAME_MAX_LENGTH + 1), "c", 1L);
+
+        mockMvc.perform(post("/api/tree")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.name").value("Name must be at most 255 characters"));
+    }
+
+    @Test
+    void shouldReturnBadRequestForNonNumericId() throws Exception {
+        mockMvc.perform(get("/api/tree/abc"))
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void shouldReturnBadRequestForMoveWithoutNodeId() throws Exception {
+        mockMvc.perform(post("/api/tree/move")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"newParentId\": 1}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.nodeId").value("Node ID is required"));
+    }
+
+    @Test
+    void shouldNotLeakInternalErrorDetails() throws Exception {
+        when(service.getFullTree()).thenThrow(new RuntimeException("secret internals"));
+
+        mockMvc.perform(get("/api/tree"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.detail").value("Unexpected server error"));
+    }
+
     private TreeNodeResponse createResponse(Long id, String name, String content, Long parentId) {
-        TreeNodeResponse response = new TreeNodeResponse();
-        response.setId(id);
-        response.setName(name);
-        response.setContent(content);
-        response.setParentId(parentId);
-        response.setChildren(new ArrayList<>());
-        return response;
+        return new TreeNodeResponse(id, name, content, parentId, List.of(), null);
     }
 }
 

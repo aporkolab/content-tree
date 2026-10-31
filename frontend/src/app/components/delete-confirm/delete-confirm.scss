@@ -1,3 +1,4 @@
+@use 'sass:color';
 .dialog-overlay {
   position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4);
   display: flex; align-items: center; justify-content: center; z-index: 1000;
@@ -43,5 +44,5 @@
   padding: 8px 18px; border: none; border-radius: 4px;
   cursor: pointer; font-size: 14px; font-weight: 500;
   &.btn-secondary { background: #f0f0f0; color: #555; &:hover { background: #e0e0e0; } }
-  &.btn-danger { background: #e74c3c; color: white; &:hover { background: darken(#e74c3c, 8%); } }
+  &.btn-danger { background: #e74c3c; color: white; &:hover { background: color.adjust(#e74c3c, $lightness: -8%); } }
 }

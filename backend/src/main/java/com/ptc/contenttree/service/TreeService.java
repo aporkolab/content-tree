@@ -2,198 +2,175 @@ package com.ptc.contenttree.service;
 
 import com.ptc.contenttree.dto.TreeNodeRequest;
 import com.ptc.contenttree.dto.TreeNodeResponse;
+import com.ptc.contenttree.exception.InvalidTreeOperationException;
 import com.ptc.contenttree.exception.NodeNotFoundException;
+import com.ptc.contenttree.exception.RootNodeDeletionException;
 import com.ptc.contenttree.model.TreeNode;
 import com.ptc.contenttree.repository.TreeRepository;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
+/**
+ * Tree operations. Mutating methods are synchronized so the structural checks
+ * (single root, no cycles) and the write happen atomically.
+ */
 @Service
-@RequiredArgsConstructor
 public class TreeService {
 
     private static final Logger log = LoggerFactory.getLogger(TreeService.class);
+
     private final TreeRepository repository;
 
-    public TreeNodeResponse create(TreeNodeRequest request) {
-        if (request.getParentId() != null) {
-            validateParent(request.getParentId());
+    public TreeService(TreeRepository repository) {
+        this.repository = repository;
+    }
+
+    public synchronized TreeNodeResponse create(TreeNodeRequest request) {
+        if (request.parentId() != null) {
+            requireParentExists(request.parentId());
         } else if (repository.hasRoot()) {
-            throw new IllegalArgumentException("Root node already exists, new nodes must have a parent");
+            throw new InvalidTreeOperationException("Root node already exists, new nodes must have a parent");
         }
 
-        TreeNode node = new TreeNode();
-        node.setName(request.getName());
-        node.setContent(request.getContent());
-        node.setParentId(request.getParentId());
-
-        TreeNode saved = repository.save(node);
-        log.info("Created node: {} under parent: {}", saved.getId(), saved.getParentId());
+        TreeNode saved = repository.save(new TreeNode(null, request.name(), request.content(), request.parentId()));
+        log.info("Created node: {} under parent: {}", saved.id(), saved.parentId());
         return toResponse(saved);
     }
 
-    public TreeNodeResponse update(Long id, TreeNodeRequest request) {
-        TreeNode node = repository.findById(id)
-                .orElseThrow(() -> new NodeNotFoundException("Node not found: " + id));
+    public synchronized TreeNodeResponse update(Long id, TreeNodeRequest request) {
+        TreeNode node = findOrThrow(id);
+        validateNewParent(node, request.parentId());
 
-        if (request.getParentId() != null && !request.getParentId().equals(node.getParentId())) {
-            validateParent(request.getParentId());
-        }
-
-        if (request.getParentId() == null && node.getParentId() != null && repository.hasRoot()) {
-            throw new IllegalArgumentException("Cannot set parent to null, root node already exists");
-        }
-
-        node.setName(request.getName());
-        node.setContent(request.getContent());
-        node.setParentId(request.getParentId());
-
-        TreeNode saved = repository.save(node);
-        log.info("Updated node: {}", saved.getId());
+        TreeNode saved = repository.save(new TreeNode(id, request.name(), request.content(), request.parentId()));
+        log.info("Updated node: {}", saved.id());
         return toResponse(saved);
     }
 
-    public void delete(Long id) {
-        TreeNode node = repository.findById(id)
-                .orElseThrow(() -> new NodeNotFoundException("Node not found: " + id));
-
-        if (node.getParentId() == null) {
-            throw new IllegalStateException("Cannot delete root node");
+    public synchronized void delete(Long id) {
+        TreeNode node = findOrThrow(id);
+        if (node.isRoot()) {
+            throw new RootNodeDeletionException();
         }
 
         log.info("Deleting node {} with all children", id);
         repository.deleteWithChildren(id);
     }
 
-    public TreeNodeResponse getById(Long id) {
-        TreeNode node = repository.findById(id)
-                .orElseThrow(() -> new NodeNotFoundException("Node not found: " + id));
-        return toResponse(node);
-    }
-
-    public TreeNodeResponse getFullTree() {
-        TreeNode root = repository.buildTree();
-        if (root == null) {
-            return null;
-        }
-        clearMatchFlags(root);
-        return toResponseWithChildren(root);
-    }
-
-    private void clearMatchFlags(TreeNode node) {
-        node.setIsMatch(null);
-        if (node.getChildren() != null) {
-            for (TreeNode child : node.getChildren()) {
-                clearMatchFlags(child);
-            }
-        }
-    }
-
-    public void moveNode(Long nodeId, Long newParentId) {
+    public synchronized void moveNode(Long nodeId, Long newParentId) {
         TreeNode node = repository.findById(nodeId)
                 .orElseThrow(() -> new NodeNotFoundException("Source node does not exist: " + nodeId));
+        validateNewParent(node, newParentId);
 
-        if (newParentId != null) {
-            if (!repository.existsById(newParentId)) {
-                throw new IllegalArgumentException("Target parent does not exist: " + newParentId);
-            }
-            if (isDescendant(nodeId, newParentId)) {
-                throw new IllegalArgumentException("Cannot move node to its own descendant");
-            }
-        } else if (node.getParentId() != null && repository.hasRoot()) {
-            // moving to root level but root already exists
-            throw new IllegalArgumentException("Cannot move node to root level, root already exists");
-        }
-
-        node.setParentId(newParentId);
-        repository.save(node);
+        repository.save(node.withParentId(newParentId));
         log.debug("Moved node {} to parent {}", nodeId, newParentId);
     }
 
-    public TreeNodeResponse search(String query) {
-        if (query == null || query.trim().isEmpty()) {
+    public TreeNodeResponse getById(Long id) {
+        return toResponse(findOrThrow(id));
+    }
+
+    /** Full tree, or empty when there is no root yet. */
+    public Optional<TreeNodeResponse> getFullTree() {
+        return buildTree(node -> null);
+    }
+
+    /**
+     * Full tree with {@code isMatch} set on every node: {@code true} when its
+     * name or content contains the query (case-insensitive). A blank query
+     * returns the plain tree.
+     */
+    public Optional<TreeNodeResponse> search(String query) {
+        if (query == null || query.isBlank()) {
             return getFullTree();
         }
-
-        String lowerQuery = query.toLowerCase();
-        TreeNode root = repository.buildTree();
-        if (root == null) {
-            return null;
-        }
-
-        // Mark matching nodes in tree
-        markMatches(root, lowerQuery);
-        return toResponseWithChildren(root);
+        String needle = query.trim().toLowerCase(Locale.ROOT);
+        return buildTree(node -> contains(node.name(), needle) || contains(node.content(), needle));
     }
 
-    private boolean markMatches(TreeNode node, String query) {
-        String name = node.getName() != null ? node.getName().toLowerCase() : "";
-        String content = node.getContent() != null ? node.getContent().toLowerCase() : "";
-        boolean selfMatch = name.contains(query) || content.contains(query);
+    private static boolean contains(String text, String needle) {
+        return text != null && text.toLowerCase(Locale.ROOT).contains(needle);
+    }
 
-        boolean childMatch = false;
-        for (TreeNode child : node.getChildren()) {
-            if (markMatches(child, query)) {
-                childMatch = true;
+    /**
+     * Builds the response tree from a snapshot, without touching the stored
+     * nodes. {@code matcher} returns the value for {@code isMatch} (null to omit).
+     */
+    private Optional<TreeNodeResponse> buildTree(Function<TreeNode, Boolean> matcher) {
+        List<TreeNode> all = repository.findAll();
+        Map<Long, List<TreeNode>> childrenByParent = all.stream()
+                .filter(Predicate.not(TreeNode::isRoot))
+                .collect(Collectors.groupingBy(TreeNode::parentId));
+
+        return all.stream()
+                .filter(TreeNode::isRoot)
+                .findFirst()
+                .map(root -> toTreeResponse(root, childrenByParent, matcher));
+    }
+
+    private TreeNodeResponse toTreeResponse(TreeNode node, Map<Long, List<TreeNode>> childrenByParent,
+                                            Function<TreeNode, Boolean> matcher) {
+        List<TreeNodeResponse> children = childrenByParent.getOrDefault(node.id(), List.of()).stream()
+                .map(child -> toTreeResponse(child, childrenByParent, matcher))
+                .toList();
+        return new TreeNodeResponse(node.id(), node.name(), node.content(), node.parentId(),
+                children, matcher.apply(node));
+    }
+
+    /**
+     * Checks that {@code node} may be re-parented under {@code newParentId}:
+     * the parent must exist, must not be the node or one of its descendants,
+     * and only one root may exist.
+     */
+    private void validateNewParent(TreeNode node, Long newParentId) {
+        if (Objects.equals(node.parentId(), newParentId)) {
+            return;
+        }
+        if (newParentId == null) {
+            if (!repository.hasRoot()) {
+                return;
             }
+            throw new InvalidTreeOperationException("Cannot move node to root level, root already exists");
         }
-
-        // a node is a "match" if it or any descendant matches
-        node.setIsMatch(selfMatch);
-        return selfMatch || childMatch;
+        requireParentExists(newParentId);
+        if (isSelfOrDescendant(node.id(), newParentId)) {
+            throw new InvalidTreeOperationException("Cannot move node to its own descendant");
+        }
     }
 
-    private boolean isDescendant(Long ancestorId, Long nodeId) {
-        // Walk up from nodeId checking if we hit ancestorId
-        Long currentId = nodeId;
+    /** Walks up from {@code candidateId} and reports whether {@code ancestorId} is on the path. */
+    private boolean isSelfOrDescendant(Long ancestorId, Long candidateId) {
+        Long currentId = candidateId;
         while (currentId != null) {
             if (currentId.equals(ancestorId)) {
                 return true;
             }
-            TreeNode current = repository.findById(currentId).orElse(null);
-            if (current == null) break;
-            currentId = current.getParentId();
+            currentId = repository.findById(currentId).map(TreeNode::parentId).orElse(null);
         }
         return false;
     }
 
-    private void validateParent(Long parentId) {
+    private void requireParentExists(Long parentId) {
         if (!repository.existsById(parentId)) {
-            throw new IllegalArgumentException("Parent node does not exist: " + parentId);
+            throw new InvalidTreeOperationException("Parent node does not exist: " + parentId);
         }
     }
 
-    private TreeNodeResponse toResponse(TreeNode node) {
-        TreeNodeResponse response = new TreeNodeResponse();
-        response.setId(node.getId());
-        response.setName(node.getName());
-        response.setContent(node.getContent());
-        response.setParentId(node.getParentId());
-        response.setChildren(new ArrayList<>());
-        response.setIsMatch(node.getIsMatch());
-        return response;
+    private TreeNode findOrThrow(Long id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new NodeNotFoundException("Node not found: " + id));
     }
 
-    private TreeNodeResponse toResponseWithChildren(TreeNode node) {
-        TreeNodeResponse response = new TreeNodeResponse();
-        response.setId(node.getId());
-        response.setName(node.getName());
-        response.setContent(node.getContent());
-        response.setParentId(node.getParentId());
-        response.setIsMatch(node.getIsMatch());
-
-        List<TreeNodeResponse> childResponses = new ArrayList<>();
-        if (node.getChildren() != null) {
-            for (TreeNode child : node.getChildren()) {
-                childResponses.add(toResponseWithChildren(child));
-            }
-        }
-        response.setChildren(childResponses);
-        return response;
+    private static TreeNodeResponse toResponse(TreeNode node) {
+        return new TreeNodeResponse(node.id(), node.name(), node.content(), node.parentId(), List.of(), null);
     }
 }

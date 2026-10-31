@@ -1,34 +1,23 @@
 package com.ptc.contenttree.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import jakarta.validation.constraints.NotBlank;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
-import java.util.ArrayList;
-import java.util.List;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
+/**
+ * A single node as it is stored. Immutable, so instances handed out by the
+ * repository can be shared safely between requests.
+ */
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class TreeNode {
+public record TreeNode(Long id, String name, String content, Long parentId) {
 
-    private Long id;
+    public TreeNode withId(Long newId) {
+        return new TreeNode(newId, name, content, parentId);
+    }
 
-    @NotBlank(message = "Name is required")
-    private String name;
+    public TreeNode withParentId(Long newParentId) {
+        return new TreeNode(id, name, content, newParentId);
+    }
 
-    @NotBlank(message = "Content is required")
-    private String content;
-
-    private Long parentId;
-
-    @JsonIgnore
-    private List<TreeNode> children = new ArrayList<>();
-
-    @JsonIgnore
-    private Boolean isMatch;
+    public boolean isRoot() {
+        return parentId == null;
+    }
 }
